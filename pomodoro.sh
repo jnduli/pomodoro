@@ -35,15 +35,21 @@ rest () {
 
 chiming_with_input () {
     echo "Press q to stop chiming, and start break"
+    echo ""
+    SECONDS=0
     while true
     do
         play_notification
         read -t 0.25 -N 1 input
+        duration=$SECONDS
+        clear_line
+        echo "Chiming duration: $(($duration / 60)) min $(($duration % 60)) sec"
         if [[ $input = "q" ]] || [[ $input = "Q" ]]; then
             echo
             break
         fi
     done
+    clear_line
 }
 single_pomodoro_run () {
     echo "Starting pomodoro $1"
