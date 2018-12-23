@@ -59,6 +59,34 @@ single_pomodoro_run () {
     chiming_with_input
 }
 
+show_help () {
+    echo "pomodoro: "
+    echo " -h: Show this help file"
+    echo " -p <arg>: Set time for actual work"
+    echo " -r <arg>: Set time for rest"
+}
+options () {
+    while getopts ":p:r:h" OPTION; do
+        case $OPTION in
+            p)
+                WORK=$OPTARG
+                ;;
+            r)
+                REST=$OPTARG
+                ;;
+            h)
+                show_help
+                exit 1
+                ;;
+            \?)
+                echo "Invalid option: -$OPTARG" >&2
+                exit 1
+                ;;
+        esac
+    done
+}
+
+options "$@"
 # Infinite loop
 START=1
 while true
