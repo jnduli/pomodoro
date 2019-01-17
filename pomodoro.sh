@@ -65,6 +65,12 @@ show_help () {
     echo " -p <arg>: Set time for actual work"
     echo " -r <arg>: Set time for rest"
 }
+
+rename_window_in_tmux () {
+    if [[ -n $TMUX ]]; then
+        tmux rename-window "pomodoro"
+    fi
+}
 options () {
     while getopts ":p:r:h" OPTION; do
         case $OPTION in
@@ -87,6 +93,7 @@ options () {
 }
 
 options "$@"
+rename_window_in_tmux
 # Infinite loop
 START=1
 while true
