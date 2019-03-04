@@ -4,7 +4,7 @@ SOUNDFILE='/usr/share/sounds/freedesktop/stereo/complete.oga'
 
 WORK=25
 REST=5
-SLEEP=1m
+SLEEP=1s
 
 play_notification () {
     paplay $SOUNDFILE
@@ -16,21 +16,25 @@ clear_line () {
 }
 
 count_down () { 
-    for i in $(eval echo "{1..$WORK}")
+    # Takes to parameters
+    # $1 is time
+    # $2 is messages to prepend
+    echo "$2 0 minutes"
+    for i in $(eval echo "{1..$1}")
     do
-        echo "Time spent is $i minutes"
         sleep $SLEEP
         clear_line
+        echo "$2 $i minutes"
     done
 }
 
+work () {
+    count_down $WORK "Time spend:"
+
+}
+
 rest () {
-    for i in $(eval echo "{1..$REST}")
-    do
-        echo "Rested for $i minutes"
-        sleep $SLEEP
-        clear_line
-    done
+    count_down $REST "Rested for"
 }
 
 chiming_with_input () {
@@ -53,7 +57,7 @@ chiming_with_input () {
 }
 single_pomodoro_run () {
     echo "Starting pomodoro $1"
-    count_down
+    work
     chiming_with_input
     rest
     chiming_with_input
