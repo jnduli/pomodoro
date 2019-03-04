@@ -4,7 +4,7 @@ SOUNDFILE='/usr/share/sounds/freedesktop/stereo/complete.oga'
 
 WORK=25
 REST=5
-SLEEP=1s
+SLEEP=1m
 
 play_notification () {
     paplay $SOUNDFILE
