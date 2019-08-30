@@ -1,6 +1,9 @@
 #!/bin/bash
 
-SOUNDFILE='/usr/share/sounds/freedesktop/stereo/complete.oga'
+scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
+cd $scriptDir
+
+SOUNDFILE='alarm.oga'
 
 WORK=25
 REST=5
