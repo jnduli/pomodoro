@@ -87,6 +87,9 @@ single_pomodoro_run () {
 
 show_help () {
     echo "pomodoro: "
+    echo " This runs pomodoro from your terminal"
+    echo " During a count down, you can press p to pause/unpause the program"
+    echo " You can also press q to quit the program"
     echo " -h: Show help file"
     echo " -p <arg>: Set time for actual work"
     echo " -r <arg>: Set time for rest"
