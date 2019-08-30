@@ -28,9 +28,44 @@ count_down () {
     done
 }
 
+count_down_with_pause () {
+    # Takes to parameters
+    # $1 is time in minutes
+    # $2 is messages to prepend
+    secs_to_count_down=$(($1*60))
+    SECONDS=0 
+    PRINTED_MINUTES=0
+    echo "$2 0 minutes"
+    while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
+        minutes=$((SECONDS/60))
+        if [[ $PRINTED_MINUTES != $minutes ]];then
+            PRINTED_MINUTES=$minutes
+            clear_line
+            echo "$2 $PRINTED_MINUTES minutes"
+        fi
+        read -t 0.25 -N 1 input
+        if [[ $input = 'p' || $input = 'P' ]];then
+            PAUSEDTIME=$SECONDS
+            pause_forever
+            SECONDS=$PAUSEDTIME
+        fi
+    done
+}
+
+pause_forever () {
+    echo "PAUSED, press p to unpause"
+    while true
+    do
+        read -t 0.25 -N 1 input
+        if [[ $input = 'p' || $input = 'P' ]];then
+            break
+        fi
+    done
+    clear_line
+}
+
 work () {
     count_down $WORK "Time spend:"
-
 }
 
 rest () {
@@ -98,15 +133,16 @@ options () {
 
 options "$@"
 rename_window_in_tmux
+count_down_with_pause 5 "THIS IS:"
 # Infinite loop
-START=1
-while true
-do
-    single_pomodoro_run $START
-    START=$((START+1))
-    clear_line
-    clear_line
-    clear_line
-    clear_line
-    clear_line
-done
+# START=1
+# while true
+# do
+    # single_pomodoro_run $START
+    # START=$((START+1))
+    # clear_line
+    # clear_line
+    # clear_line
+    # clear_line
+    # clear_line
+# done
