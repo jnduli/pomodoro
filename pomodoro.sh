@@ -15,21 +15,8 @@ clear_line () {
     printf "\033[K"   # delete till end of line
 }
 
-count_down () { 
-    # Takes to parameters
-    # $1 is time
-    # $2 is messages to prepend
-    echo "$2 0 minutes"
-    for i in $(eval echo "{1..$1}")
-    do
-        sleep $SLEEP
-        clear_line
-        echo "$2 $i minutes"
-    done
-}
-
-count_down_with_pause () {
-    # Takes to parameters
+count_down () {
+    # Takes two parameters
     # $1 is time in minutes
     # $2 is messages to prepend
     secs_to_count_down=$(($1*60))
@@ -100,7 +87,7 @@ single_pomodoro_run () {
 
 show_help () {
     echo "pomodoro: "
-    echo " -h: Show this help file"
+    echo " -h: Show help file"
     echo " -p <arg>: Set time for actual work"
     echo " -r <arg>: Set time for rest"
 }
@@ -133,16 +120,15 @@ options () {
 
 options "$@"
 rename_window_in_tmux
-count_down_with_pause 5 "THIS IS:"
 # Infinite loop
-# START=1
-# while true
-# do
-    # single_pomodoro_run $START
-    # START=$((START+1))
-    # clear_line
-    # clear_line
-    # clear_line
-    # clear_line
-    # clear_line
-# done
+START=1
+while true
+do
+    single_pomodoro_run $START
+    START=$((START+1))
+    clear_line
+    clear_line
+    clear_line
+    clear_line
+    clear_line
+done
