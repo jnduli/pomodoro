@@ -8,6 +8,8 @@ SOUNDFILE='alarm.oga'
 WORK=25
 REST=5
 SLEEP=1m
+LOG=0
+LOG_DIR='.logs/'
 
 play_notification () {
     paplay $SOUNDFILE
@@ -84,6 +86,7 @@ single_pomodoro_run () {
     echo "Starting pomodoro $1"
     work
     chiming_with_input
+    log $1
     rest
     chiming_with_input
 }
@@ -103,6 +106,15 @@ rename_window_in_tmux () {
         tmux rename-window "pomodoro"
     fi
 }
+
+log () {
+    mkdir -p $LOG_DIR
+    FILENAME=$LOG_DIR$(date +"%F").log
+    touch $FILENAME
+    read -p 'Work done: ' work
+    echo 'Pomodoro' $1 ':' $work >> $FILENAME
+}
+
 options () {
     while getopts ":p:r:h" OPTION; do
         case $OPTION in
