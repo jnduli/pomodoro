@@ -1,14 +1,12 @@
 #!/bin/bash
 
-scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
-cd $scriptDir
+scriptDir=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
+cd "$scriptDir" || exit
 
 SOUNDFILE='alarm.oga'
 
 WORK=25
 REST=5
-SLEEP=1m
-LOG=0
 LOG_DIR='.logs/'
 
 play_notification () {
@@ -30,12 +28,12 @@ count_down () {
     echo "$2 0 minutes"
     while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
         minutes=$((SECONDS/60))
-        if [[ $PRINTED_MINUTES != $minutes ]];then
+        if [[ $PRINTED_MINUTES != "$minutes" ]];then
             PRINTED_MINUTES=$minutes
             clear_line
             echo "$2 $PRINTED_MINUTES minutes"
         fi
-        read -t 0.25 -N 1 input
+        read -r -t 0.25 -N 1 input
         if [[ $input = 'p' || $input = 'P' ]];then
             PAUSEDTIME=$SECONDS
             pause_forever
@@ -48,7 +46,7 @@ pause_forever () {
     echo "PAUSED, press p to unpause"
     while true
     do
-        read -t 0.25 -N 1 input
+        read -r -t 0.25 -N 1 input
         if [[ $input = 'p' || $input = 'P' ]];then
             break
         fi
@@ -71,10 +69,10 @@ chiming_with_input () {
     while true
     do
         play_notification
-        read -t 0.25 -N 1 input
+        read -r -t 0.25 -N 1 input
         duration=$SECONDS
         clear_line
-        echo "Chiming duration: $(($duration / 60)) min $(($duration % 60)) sec"
+        echo "Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
         if [[ $input = "q" ]] || [[ $input = "Q" ]]; then
             echo
             break
@@ -86,7 +84,7 @@ single_pomodoro_run () {
     echo "Starting pomodoro $1"
     work
     chiming_with_input
-    log $1
+    log "$1"
     rest
     chiming_with_input
 }
@@ -110,9 +108,9 @@ rename_window_in_tmux () {
 log () {
     mkdir -p $LOG_DIR
     FILENAME=$LOG_DIR$(date +"%F").log
-    touch $FILENAME
-    read -p 'Work done: ' work
-    echo 'Pomodoro' $1 ':' $work >> $FILENAME
+    touch "$FILENAME"
+    read -r -p 'Work done: ' work
+    echo 'Pomodoro' "$1" ':' "$work" >> "$FILENAME"
 }
 
 options () {
