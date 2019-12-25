@@ -89,6 +89,7 @@ chiming_with_input () {
     done
     clear_line
 }
+
 single_pomodoro_run () {
     echo "Pomodoro $1"
     work
@@ -103,6 +104,13 @@ rename_window_in_tmux () {
     if [[ -n $TMUX ]]; then
         tmux rename-window "pomodoro"
     fi
+}
+
+view_logs () {
+    # show the day's logs when called
+    # should add support to view other days logs
+    FILENAME=$LOG_DIR$(date +"%F").log
+    cat "$FILENAME"
 }
 
 log () {
@@ -126,13 +134,17 @@ show_help () {
 }
 
 options () {
-    while getopts ":p:r:h" OPTION; do
+    while getopts "p:r:lh" OPTION; do
         case $OPTION in
             p)
                 WORK=$OPTARG
                 ;;
             r)
                 REST=$OPTARG
+                ;;
+            l)
+                view_logs
+                exit 1
                 ;;
             h)
                 show_help
@@ -148,7 +160,7 @@ options () {
 
 options "$@"
 rename_window_in_tmux
-# Infinite loop
+# infinite loop
 START=1
 while true
 do
