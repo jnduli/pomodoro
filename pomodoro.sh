@@ -8,6 +8,7 @@ SOUNDFILE='alarm.oga'
 WORK=25
 REST=5
 LOG_DIR='.logs/'
+LOG_FILENAME=$LOG_DIR$(date +"%F").log
 
 play_notification () {
     paplay $SOUNDFILE
@@ -109,18 +110,16 @@ rename_window_in_tmux () {
 view_logs () {
     # show the day's logs when called
     # should add support to view other days logs
-    FILENAME=$LOG_DIR$(date +"%F").log
-    cat "$FILENAME"
+    cat "$LOG_FILENAME"
 }
 
 log () {
     mkdir -p $LOG_DIR
-    FILENAME=$LOG_DIR$(date +"%F").log
-    touch "$FILENAME"
+    touch "$LOG_FILENAME"
     read -r -p 'Work done: ' work
     clear_line
     echo -e '\tWork done: ' $work
-    echo 'Pomodoro' "$1" ':' "$work" >> "$FILENAME"
+    echo 'Pomodoro' "$1" ':' "$work" >> "$LOG_FILENAME"
 }
 
 show_help () {
@@ -162,7 +161,12 @@ options () {
 options "$@"
 rename_window_in_tmux
 # infinite loop
-START=1
+if [ -f "$LOG_FILENAME" ]; then
+    START=$(wc -l < "$LOG_FILENAME")
+    START=$((START+1))
+else
+    START=1 
+fi
 while true
 do
     single_pomodoro_run $START
