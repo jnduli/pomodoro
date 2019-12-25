@@ -14,8 +14,17 @@ play_notification () {
 }
 
 clear_line () {
-    printf "\033[1A"  # move cursor one line up
-    printf "\033[K"   # delete till end of line
+    # $1 is number of lines to clear
+    if [ -n "$1" ]; then
+        lines=$1
+    else
+        lines=1
+    fi
+    while (( lines > 0 )); do 
+        printf "\033[1A"  # move cursor one line up
+        printf "\033[K"   # delete till end of line
+        lines=$lines-1
+    done
 }
 
 count_down () {
@@ -25,7 +34,7 @@ count_down () {
     secs_to_count_down=$(($1*60))
     SECONDS=0 
     PRINTED_MINUTES=0
-    echo "$2 0 minutes"
+    echo -e "$2 0 minutes"
     while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
         minutes=$((SECONDS/60))
         if [[ $PRINTED_MINUTES != "$minutes" ]];then
@@ -55,11 +64,11 @@ pause_forever () {
 }
 
 work () {
-    count_down $WORK "Time spend:"
+    count_down $WORK "\tTime spent:"
 }
 
 rest () {
-    count_down $REST "Rested for"
+    count_down $REST "\tRested for"
 }
 
 chiming_with_input () {
@@ -81,22 +90,13 @@ chiming_with_input () {
     clear_line
 }
 single_pomodoro_run () {
-    echo "Starting pomodoro $1"
+    echo "Pomodoro $1"
     work
     chiming_with_input
+    clear_line 2
     log "$1"
     rest
     chiming_with_input
-}
-
-show_help () {
-    echo "pomodoro: "
-    echo " This runs pomodoro from your terminal"
-    echo " During a count down, you can press p to pause/unpause the program"
-    echo " You can also press q to quit the program"
-    echo " -h: Show help file"
-    echo " -p <arg>: Set time for actual work"
-    echo " -r <arg>: Set time for rest"
 }
 
 rename_window_in_tmux () {
@@ -110,7 +110,19 @@ log () {
     FILENAME=$LOG_DIR$(date +"%F").log
     touch "$FILENAME"
     read -r -p 'Work done: ' work
+    clear_line
+    echo -e '\tWork done: ' $work
     echo 'Pomodoro' "$1" ':' "$work" >> "$FILENAME"
+}
+
+show_help () {
+    echo "pomodoro: "
+    echo " This runs pomodoro from your terminal"
+    echo " During a count down, you can press p to pause/unpause the program"
+    echo " You can also press q to quit the program"
+    echo " -h: Show help file"
+    echo " -p <arg>: Set time for actual work"
+    echo " -r <arg>: Set time for rest"
 }
 
 options () {
@@ -142,9 +154,5 @@ while true
 do
     single_pomodoro_run $START
     START=$((START+1))
-    clear_line
-    clear_line
-    clear_line
-    clear_line
-    clear_line
+    clear_line 3
 done
