@@ -131,6 +131,7 @@ show_help () {
     echo " -h: Show help file"
     echo " -p <arg>: Set time for actual work"
     echo " -r <arg>: Set time for rest"
+    echo " -l: Daily retrospection (Show work done during the day)"
 }
 
 options () {
