@@ -8,14 +8,23 @@ SOUNDFILE='alarm.oga'
 WORK=25
 REST=5
 LOG_DIR='.logs/'
+LOG_FILENAME=$LOG_DIR$(date +"%F").log
 
 play_notification () {
     paplay $SOUNDFILE
 }
 
 clear_line () {
-    printf "\033[1A"  # move cursor one line up
-    printf "\033[K"   # delete till end of line
+    # $1 is number of lines to clear
+    lines=1
+    if [ -n "$1" ]; then
+        lines=$1
+    fi
+    while (( lines > 0 )); do 
+        printf "\033[1A"  # move cursor one line up
+        printf "\033[K"   # delete till end of line
+        lines=$lines-1
+    done
 }
 
 count_down () {
@@ -25,7 +34,7 @@ count_down () {
     secs_to_count_down=$(($1*60))
     SECONDS=0 
     PRINTED_MINUTES=0
-    echo "$2 0 minutes"
+    echo -e "$2 0 minutes"
     while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
         minutes=$((SECONDS/60))
         if [[ $PRINTED_MINUTES != "$minutes" ]];then
@@ -55,11 +64,11 @@ pause_forever () {
 }
 
 work () {
-    count_down $WORK "Time spend:"
+    count_down $WORK "\tTime spent:"
 }
 
 rest () {
-    count_down $REST "Rested for"
+    count_down $REST "\tRested for"
 }
 
 chiming_with_input () {
@@ -80,23 +89,15 @@ chiming_with_input () {
     done
     clear_line
 }
+
 single_pomodoro_run () {
-    echo "Starting pomodoro $1"
+    echo "Pomodoro $1"
     work
     chiming_with_input
+    clear_line 2
     log "$1"
     rest
     chiming_with_input
-}
-
-show_help () {
-    echo "pomodoro: "
-    echo " This runs pomodoro from your terminal"
-    echo " During a count down, you can press p to pause/unpause the program"
-    echo " You can also press q to quit the program"
-    echo " -h: Show help file"
-    echo " -p <arg>: Set time for actual work"
-    echo " -r <arg>: Set time for rest"
 }
 
 rename_window_in_tmux () {
@@ -105,22 +106,48 @@ rename_window_in_tmux () {
     fi
 }
 
+view_logs () {
+    # show the day's logs when called
+    # should add support to view other days logs
+    cat "$LOG_FILENAME"
+}
+
 log () {
     mkdir -p $LOG_DIR
-    FILENAME=$LOG_DIR$(date +"%F").log
-    touch "$FILENAME"
+    touch "$LOG_FILENAME"
     read -r -p 'Work done: ' work
-    echo 'Pomodoro' "$1" ':' "$work" >> "$FILENAME"
+    clear_line
+    echo -e '\tWork done: ' "$work"
+    echo 'Pomodoro' "$1" ':' "$work" >> "$LOG_FILENAME"
+}
+
+show_help () {
+    cat <<EOF
+Copyright (C) 2019: John Nduli K.                                                                                                      
+pomodoro.sh:
+ This runs pomodoro from your terminal
+ During a count down, you can press p to pause/unpause the program
+ You can also press q to quit the program
+
+ -h: Show help file
+ -p <arg>: Set time for actual work
+ -r <arg>: Set time for rest
+ -l: Daily retrospection (Show work done during the day)
+EOF
 }
 
 options () {
-    while getopts ":p:r:h" OPTION; do
+    while getopts "p:r:lh" OPTION; do
         case $OPTION in
             p)
                 WORK=$OPTARG
                 ;;
             r)
                 REST=$OPTARG
+                ;;
+            l)
+                view_logs
+                exit 1
                 ;;
             h)
                 show_help
@@ -136,15 +163,15 @@ options () {
 
 options "$@"
 rename_window_in_tmux
-# Infinite loop
+# infinite loop
 START=1
+if [ -f "$LOG_FILENAME" ]; then
+    START=$(wc -l < "$LOG_FILENAME")
+    START=$((START+1))
+fi
 while true
 do
     single_pomodoro_run $START
     START=$((START+1))
-    clear_line
-    clear_line
-    clear_line
-    clear_line
-    clear_line
+    clear_line 3
 done
