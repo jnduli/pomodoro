@@ -16,10 +16,9 @@ play_notification () {
 
 clear_line () {
     # $1 is number of lines to clear
+    lines=1
     if [ -n "$1" ]; then
         lines=$1
-    else
-        lines=1
     fi
     while (( lines > 0 )); do 
         printf "\033[1A"  # move cursor one line up
@@ -161,11 +160,10 @@ options () {
 options "$@"
 rename_window_in_tmux
 # infinite loop
+START=1
 if [ -f "$LOG_FILENAME" ]; then
     START=$(wc -l < "$LOG_FILENAME")
     START=$((START+1))
-else
-    START=1 
 fi
 while true
 do
