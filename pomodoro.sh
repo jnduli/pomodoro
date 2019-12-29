@@ -117,19 +117,23 @@ log () {
     touch "$LOG_FILENAME"
     read -r -p 'Work done: ' work
     clear_line
-    echo -e '\tWork done: ' $work
+    echo -e '\tWork done: ' "$work"
     echo 'Pomodoro' "$1" ':' "$work" >> "$LOG_FILENAME"
 }
 
 show_help () {
-    echo "pomodoro: "
-    echo " This runs pomodoro from your terminal"
-    echo " During a count down, you can press p to pause/unpause the program"
-    echo " You can also press q to quit the program"
-    echo " -h: Show help file"
-    echo " -p <arg>: Set time for actual work"
-    echo " -r <arg>: Set time for rest"
-    echo " -l: Daily retrospection (Show work done during the day)"
+    cat <<EOF
+Copyright (C) 2019: John Nduli K.                                                                                                      
+pomodoro.sh:
+ This runs pomodoro from your terminal
+ During a count down, you can press p to pause/unpause the program
+ You can also press q to quit the program
+
+ -h: Show help file
+ -p <arg>: Set time for actual work
+ -r <arg>: Set time for rest
+ -l: Daily retrospection (Show work done during the day)
+EOF
 }
 
 options () {
