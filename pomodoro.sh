@@ -41,7 +41,7 @@ count_down () {
         if [[ $PRINTED_MINUTES != "$minutes" ]];then
             PRINTED_MINUTES=$minutes
             clear_line
-            echo "$2 $PRINTED_MINUTES minutes"
+            echo -e "$2 $PRINTED_MINUTES minutes"
         fi
         read -r -t 0.25 -N 1 input
         if [[ $input = 'p' || $input = 'P' ]];then
