@@ -10,6 +10,7 @@ REST=5
 SECS_IN_MINUTE=60
 LOG_DIR='.logs/'
 LOG_FILENAME=$LOG_DIR$(date +"%F").log
+CONTINUE=false
 
 play_notification () {
     paplay $SOUNDFILE
@@ -32,8 +33,12 @@ count_down () {
     # Takes two parameters
     # $1 is time in minutes
     # $2 is messages to prepend
+    # $3 is n time it has looped spent (for continue support)
     secs_to_count_down=$(($1*$SECS_IN_MINUTE))
     SECONDS=0 
+    if [ -n "$3" ]; then
+        SECONDS=$(($1*$SECS_IN_MINUTE*$3))
+    fi
     PRINTED_MINUTES=0
     echo -e "$2 0 minutes"
     while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
@@ -65,7 +70,11 @@ pause_forever () {
 }
 
 work () {
-    count_down $WORK "\tTime spent:"
+    if [ -n "$1" ]; then
+        count_down $WORK "\tTime spent:" "$1"
+    else
+        count_down $WORK "\tTime spent:"
+    fi
 }
 
 rest () {
@@ -74,6 +83,7 @@ rest () {
 
 chiming_with_input () {
     echo "Press q to stop chiming, and start break"
+    echo "Press c to continue with task"
     echo ""
     SECONDS=0
     while true
@@ -84,17 +94,29 @@ chiming_with_input () {
         clear_line
         echo "Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
         if [[ $input = "q" ]] || [[ $input = "Q" ]]; then
+            CONTINUE=false
+            echo
+            break
+        fi
+        if [[ $input = "c" || $input = "C" ]]; then
+            CONTINUE=true
             echo
             break
         fi
     done
-    clear_line
+    clear_line 2
 }
 
 single_pomodoro_run () {
     echo "Pomodoro $1"
     work
     chiming_with_input
+    WORK_CONT=1
+    while $CONTINUE
+    do
+        WORK_CONT=$((WORK_CONT+1))
+        work $WORK_CONT
+    done
     clear_line 2
     log "$1"
     rest
