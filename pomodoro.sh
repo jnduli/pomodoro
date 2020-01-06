@@ -38,6 +38,7 @@ count_down () {
     SECONDS=0 
     if [ -n "$3" ]; then
         SECONDS=$(($1*$SECS_IN_MINUTE*$3))
+        secs_to_count_down=$((($3+1)*$1*$SECS_IN_MINUTE))
     fi
     PRINTED_MINUTES=0
     echo -e "$2 0 minutes"
@@ -95,30 +96,30 @@ chiming_with_input () {
         echo "Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
         if [[ $input = "q" ]] || [[ $input = "Q" ]]; then
             CONTINUE=false
-            echo
             break
         fi
         if [[ $input = "c" || $input = "C" ]]; then
             CONTINUE=true
-            echo
             break
         fi
     done
-    clear_line 2
+    clear_line 3
 }
 
 single_pomodoro_run () {
     echo "Pomodoro $1"
+    START_TIME=$(date +%R)
     work
     chiming_with_input
-    WORK_CONT=1
+    WORK_CONT=0
     while $CONTINUE
     do
         WORK_CONT=$((WORK_CONT+1))
         work $WORK_CONT
+        chiming_with_input
     done
-    clear_line 2
-    log "$1"
+    END_TIME=$(date +%R)
+    log "$1" "$START_TIME - $END_TIME"
     rest
     chiming_with_input
 }
@@ -136,12 +137,14 @@ view_logs () {
 }
 
 log () {
+    # $1 is the pomodoro number
+    # $2 is the time string
     mkdir -p $LOG_DIR
     touch "$LOG_FILENAME"
     read -r -p 'Work done: ' work
     clear_line
     echo -e '\tWork done: ' "$work"
-    echo 'Pomodoro' "$1" ':' "$work" >> "$LOG_FILENAME"
+    echo 'Pomodoro' "$1" "($2):" "$work" >> "$LOG_FILENAME"
 }
 
 show_help () {
