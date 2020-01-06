@@ -34,16 +34,16 @@ count_down () {
     # $1 is time in minutes
     # $2 is messages to prepend
     # $3 is n time it has looped spent (for continue support)
-    secs_to_count_down=$(($1*$SECS_IN_MINUTE))
+    secs_to_count_down=$(($1*SECS_IN_MINUTE))
     SECONDS=0 
     if [ -n "$3" ]; then
-        SECONDS=$(($1*$SECS_IN_MINUTE*$3))
-        secs_to_count_down=$((($3+1)*$1*$SECS_IN_MINUTE))
+        SECONDS=$(($1*SECS_IN_MINUTE*$3))
+        secs_to_count_down=$((($3+1)*$1*SECS_IN_MINUTE))
     fi
     PRINTED_MINUTES=0
     echo -e "$2 0 minutes"
     while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
-        minutes=$((SECONDS/$SECS_IN_MINUTE))
+        minutes=$((SECONDS/SECS_IN_MINUTE))
         if [[ $PRINTED_MINUTES != "$minutes" ]];then
             PRINTED_MINUTES=$minutes
             clear_line
@@ -94,7 +94,7 @@ chiming_with_input () {
         duration=$SECONDS
         clear_line
         echo "Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
-        if [[ $input = "q" ]] || [[ $input = "Q" ]]; then
+        if [[ $input = "q" || $input = "Q" ]]; then
             CONTINUE=false
             break
         fi
@@ -203,5 +203,4 @@ while true
 do
     single_pomodoro_run $START
     START=$((START+1))
-    clear_line 3
 done
