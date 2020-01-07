@@ -10,6 +10,7 @@ REST=5
 SECS_IN_MINUTE=60
 LOG_DIR='.logs/'
 LOG_FILENAME=$LOG_DIR$(date +"%F").log
+CONTINUE=false
 
 play_notification () {
     paplay $SOUNDFILE
@@ -32,19 +33,24 @@ count_down () {
     # Takes two parameters
     # $1 is time in minutes
     # $2 is messages to prepend
-    secs_to_count_down=$(($1*$SECS_IN_MINUTE))
+    # $3 is n times break has been avoided (e.g. 2 when you avoid the first break)
+    secs_to_count_down=$(($1*SECS_IN_MINUTE))
     SECONDS=0 
+    if [ -n "$3" ]; then
+        SECONDS=$(($1*SECS_IN_MINUTE*$3))
+        secs_to_count_down=$((($3+1)*$1*SECS_IN_MINUTE))
+    fi
     PRINTED_MINUTES=0
     echo -e "$2 0 minutes"
     while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
-        minutes=$((SECONDS/$SECS_IN_MINUTE))
+        minutes=$((SECONDS/SECS_IN_MINUTE))
         if [[ $PRINTED_MINUTES != "$minutes" ]];then
             PRINTED_MINUTES=$minutes
             clear_line
             echo -e "$2 $PRINTED_MINUTES minutes"
         fi
         read -r -t 0.25 -N 1 input
-        if [[ $input = 'p' || $input = 'P' ]];then
+        if [[ ${input^^} = "P" ]];then
             PAUSEDTIME=$SECONDS
             pause_forever
             SECONDS=$PAUSEDTIME
@@ -57,7 +63,7 @@ pause_forever () {
     while true
     do
         read -r -t 0.25 -N 1 input
-        if [[ $input = 'p' || $input = 'P' ]];then
+        if [[ ${input^^} = 'P' ]];then
             break
         fi
     done
@@ -65,7 +71,11 @@ pause_forever () {
 }
 
 work () {
-    count_down $WORK "\tTime spent:"
+    if [ -n "$1" ]; then
+        count_down $WORK "\tTime spent:" "$1"
+    else
+        count_down $WORK "\tTime spent:"
+    fi
 }
 
 rest () {
@@ -73,7 +83,10 @@ rest () {
 }
 
 chiming_with_input () {
-    echo "Press q to stop chiming, and start break"
+    cat <<EOF
+Press q to stop chiming and start break
+Press c to continue with task
+EOF
     echo ""
     SECONDS=0
     while true
@@ -83,20 +96,32 @@ chiming_with_input () {
         duration=$SECONDS
         clear_line
         echo "Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
-        if [[ $input = "q" ]] || [[ $input = "Q" ]]; then
-            echo
+        if [[ ${input^^} = "Q" ]]; then
+            CONTINUE=false
+            break
+        fi
+        if [[ ${input^^} = "C" ]]; then
+            CONTINUE=true
             break
         fi
     done
-    clear_line
+    clear_line 3
 }
 
 single_pomodoro_run () {
     echo "Pomodoro $1"
+    START_TIME=$(date +%R)
     work
     chiming_with_input
-    clear_line 2
-    log "$1"
+    WORK_CONT=0
+    while $CONTINUE
+    do
+        WORK_CONT=$((WORK_CONT+1))
+        work $WORK_CONT
+        chiming_with_input
+    done
+    END_TIME=$(date +%R)
+    log "$1" "$START_TIME - $END_TIME"
     rest
     chiming_with_input
 }
@@ -114,12 +139,14 @@ view_logs () {
 }
 
 log () {
+    # $1 is the pomodoro number
+    # $2 is the time string
     mkdir -p $LOG_DIR
     touch "$LOG_FILENAME"
     read -r -p 'Work done: ' work
     clear_line
     echo -e '\tWork done: ' "$work"
-    echo 'Pomodoro' "$1" ':' "$work" >> "$LOG_FILENAME"
+    echo 'Pomodoro' "$1" "($2):" "$work" >> "$LOG_FILENAME"
 }
 
 show_help () {
@@ -178,5 +205,4 @@ while true
 do
     single_pomodoro_run $START
     START=$((START+1))
-    clear_line 3
 done

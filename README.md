@@ -16,3 +16,14 @@ To get more help and options, do:
 ```
 pomodoro.sh -h
 ```
+
+## Features
+
+- Set up the working time and resting time e.g. to rest for 5 minutes
+  and work for 30 minutes: `pomodoro.sh -r 10 -p 30`
+- Debug mode, where the pomodoro runs for seconds instead of minutes:
+  `pomodoro.sh -r 5 -p 5 -d`
+- Retrospection mode, where the script outputs all the work logged
+  during the day: `pomodoro.sh -l`
+- Support for continuing to work when you are in the zone (Just press c
+  when you're supposed to be on break)
