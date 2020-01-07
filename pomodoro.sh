@@ -54,6 +54,8 @@ count_down () {
             PAUSEDTIME=$SECONDS
             pause_forever
             SECONDS=$PAUSEDTIME
+        elif [[ ${input^^} = "Q" ]]; then
+            break
         fi
     done
 }
