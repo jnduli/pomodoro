@@ -8,8 +8,9 @@ SOUNDFILE='alarm.oga'
 WORK=25
 REST=5
 SECS_IN_MINUTE=60
-LOG_DIR='.logs/'
-LOG_FILENAME=$LOG_DIR$(date +"%F").log
+LOG_DIR="$HOME/.pomodoro/"
+FILENAME="$(date +"%F").log"
+LOG_FILENAME="$LOG_DIR$FILENAME"
 CONTINUE=false
 
 play_notification () {
@@ -54,6 +55,8 @@ count_down () {
             PAUSEDTIME=$SECONDS
             pause_forever
             SECONDS=$PAUSEDTIME
+        elif [[ ${input^^} = "Q" ]]; then
+            break
         fi
     done
 }
@@ -176,6 +179,8 @@ options () {
                 ;;
             d)
                 SECS_IN_MINUTE=1
+                LOG_DIR=".logs/"
+                LOG_FILENAME="$LOG_DIR$FILENAME"
                 ;;
             l)
                 view_logs
