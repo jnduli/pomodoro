@@ -33,7 +33,7 @@ count_down () {
     # Takes two parameters
     # $1 is time in minutes
     # $2 is messages to prepend
-    # $3 is n time it has looped spent (for continue support)
+    # $3 is n times break has been avoided (e.g. 2 when you avoid the first break)
     secs_to_count_down=$(($1*SECS_IN_MINUTE))
     SECONDS=0 
     if [ -n "$3" ]; then
@@ -50,7 +50,7 @@ count_down () {
             echo -e "$2 $PRINTED_MINUTES minutes"
         fi
         read -r -t 0.25 -N 1 input
-        if [[ $input = 'p' || $input = 'P' ]];then
+        if [[ ${input^^} = "P" ]];then
             PAUSEDTIME=$SECONDS
             pause_forever
             SECONDS=$PAUSEDTIME
@@ -63,7 +63,7 @@ pause_forever () {
     while true
     do
         read -r -t 0.25 -N 1 input
-        if [[ $input = 'p' || $input = 'P' ]];then
+        if [[ ${input^^} = 'P' ]];then
             break
         fi
     done
@@ -83,8 +83,10 @@ rest () {
 }
 
 chiming_with_input () {
-    echo "Press q to stop chiming, and start break"
-    echo "Press c to continue with task"
+    cat <<EOF
+Press q to stop chiming and start break
+Press c to continue with task
+EOF
     echo ""
     SECONDS=0
     while true
@@ -94,11 +96,11 @@ chiming_with_input () {
         duration=$SECONDS
         clear_line
         echo "Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
-        if [[ $input = "q" || $input = "Q" ]]; then
+        if [[ ${input^^} = "Q" ]]; then
             CONTINUE=false
             break
         fi
-        if [[ $input = "c" || $input = "C" ]]; then
+        if [[ ${input^^} = "C" ]]; then
             CONTINUE=true
             break
         fi
