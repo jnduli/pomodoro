@@ -20,7 +20,7 @@ pomodoro.sh -h
 ## Features
 
 - Set up the working time and resting time e.g. to rest for 5 minutes
-  and work for 30 minutes: `pomodoro.sh -r 10 -p 30`
+  and work for 30 minutes: `pomodoro.sh -r 5 -p 30`
 - Debug mode, where the pomodoro runs for seconds instead of minutes:
   `pomodoro.sh -r 5 -p 5 -d`
 - Retrospection mode, where the script outputs all the work logged
