@@ -1,4 +1,6 @@
 #!/bin/bash
+#
+# Runs pomodoro with specified work duration and rest
 
 scriptDir=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
 cd "$scriptDir" || exit
@@ -17,8 +19,12 @@ play_notification () {
     paplay $SOUNDFILE
 }
 
+# Deletes n lines and places cursor on previous line 
+# Arguments
+#   n (Optional, defaults to 1): No of lines to clear
+# Returns
+#   None
 clear_line () {
-    # $1 is number of lines to clear
     lines=1
     if [ -n "$1" ]; then
         lines=$1
@@ -30,11 +36,12 @@ clear_line () {
     done
 }
 
+# Counts down from time t until 0 minutes
+# Arguments:
+#   time in minutes ($1)
+#   message ($2)
+#   b (Optional $3): the number of times break has been avoided
 count_down () {
-    # Takes two parameters
-    # $1 is time in minutes
-    # $2 is messages to prepend
-    # $3 is n times break has been avoided (e.g. 2 when you avoid the first break)
     secs_to_count_down=$(($1*SECS_IN_MINUTE))
     SECONDS=0 
     if [ -n "$3" ]; then
@@ -61,6 +68,7 @@ count_down () {
     done
 }
 
+# Stops everything until p is pressed
 pause_forever () {
     echo "PAUSED, press p to unpause"
     while true
@@ -73,6 +81,11 @@ pause_forever () {
     clear_line
 }
 
+# Calls count_down with work time 
+# Globals:
+#   WORK
+# Arguments:
+#   b (Optional $1): the number of times break has been avoided
 work () {
     if [ -n "$1" ]; then
         count_down $WORK "\tTime spent:" "$1"
@@ -81,10 +94,16 @@ work () {
     fi
 }
 
+# Calls count_down with rest time 
+# Globals:
+#   REST
 rest () {
     count_down $REST "\tRested for"
 }
 
+# Plays notification until key is pressed
+# Globals:
+#   CONTINUE
 chiming_with_input () {
     cat <<EOF
 Press q to stop chiming and start break
@@ -111,6 +130,11 @@ EOF
     clear_line 3
 }
 
+# Runs one complete pomodoro i.e. with work and rest
+# Globals:
+#   CONTINUE
+# Arguments:
+#   n : The current pomodoro number
 single_pomodoro_run () {
     echo "Pomodoro $1"
     START_TIME=$(date +%R)
@@ -135,15 +159,23 @@ rename_window_in_tmux () {
     fi
 }
 
+# Show the current day's work
+# Globals:
+#   LOG_FILENAME
 view_logs () {
     # show the day's logs when called
     # should add support to view other days logs
     cat "$LOG_FILENAME"
 }
 
+# Add work done to day's logs
+# Globals:
+#   LOG_DIR
+#   LOG_FILENAME
+# Arguments:
+#   n - pomodoro number
+#   t - time string ie. (starttime - endtime)
 log () {
-    # $1 is the pomodoro number
-    # $2 is the time string
     mkdir -p $LOG_DIR
     touch "$LOG_FILENAME"
     read -r -p 'Work done: ' work
@@ -168,6 +200,13 @@ pomodoro.sh:
 EOF
 }
 
+# Deals with terminal options provided
+# Globals:
+#   WORK
+#   REST
+#   SECS_IN_MINUTE
+#   LOG_DIF
+#   LOG_FILENAME
 options () {
     while getopts "p:r:dlh" OPTION; do
         case $OPTION in
