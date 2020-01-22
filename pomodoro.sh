@@ -234,15 +234,19 @@ options () {
     done
 }
 
-options "$@"
-rename_window_in_tmux
-# infinite loop
-START=1
-if [ -f "$LOG_FILENAME" ]; then
-    START=$(wc -l < "$LOG_FILENAME")
-    START=$((START+1))
-fi
-while true; do
-    single_pomodoro_run $START
-    START=$((START+1))
-done
+main () {
+    options "$@"
+    rename_window_in_tmux
+    # infinite loop
+    START=1
+    if [ -f "$LOG_FILENAME" ]; then
+        START=$(wc -l < "$LOG_FILENAME")
+        START=$((START+1))
+    fi
+    while true; do
+        single_pomodoro_run $START
+        START=$((START+1))
+    done
+}
+
+main "$@"
