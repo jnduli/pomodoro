@@ -27,3 +27,7 @@ pomodoro.sh -h
   during the day: `pomodoro.sh -l`
 - Support for continuing to work when you are in the zone (Just press c
   when you're supposed to be on break)
+
+## Reading the code
+The script starts running from the `main` function, so you can start here
+as you try to understand it.
