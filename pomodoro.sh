@@ -52,13 +52,13 @@ count_down () {
     echo -e "$2 0 minutes"
     while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
         minutes=$((SECONDS/SECS_IN_MINUTE))
-        if [[ $PRINTED_MINUTES != "$minutes" ]];then
+        if [[ $PRINTED_MINUTES != "$minutes" ]]; then
             PRINTED_MINUTES=$minutes
             clear_line
             echo -e "$2 $PRINTED_MINUTES minutes"
         fi
         read -r -t 0.25 -N 1 input
-        if [[ ${input^^} = "P" ]];then
+        if [[ ${input^^} = "P" ]]; then
             PAUSEDTIME=$SECONDS
             pause_forever
             SECONDS=$PAUSEDTIME
@@ -71,10 +71,9 @@ count_down () {
 # Stops everything until p is pressed
 pause_forever () {
     echo "PAUSED, press p to unpause"
-    while true
-    do
+    while true; do
         read -r -t 0.25 -N 1 input
-        if [[ ${input^^} = 'P' ]];then
+        if [[ ${input^^} = 'P' ]]; then
             break
         fi
     done
@@ -111,8 +110,7 @@ Press c to continue with task
 EOF
     echo ""
     SECONDS=0
-    while true
-    do
+    while true; do
         play_notification
         read -r -t 0.25 -N 1 input
         duration=$SECONDS
@@ -141,8 +139,7 @@ single_pomodoro_run () {
     work
     chiming_with_input
     WORK_CONT=0
-    while $CONTINUE
-    do
+    while $CONTINUE; do
         WORK_CONT=$((WORK_CONT+1))
         work $WORK_CONT
         chiming_with_input
@@ -176,7 +173,7 @@ view_logs () {
 #   n - pomodoro number
 #   t - time string ie. (starttime - endtime)
 log () {
-    mkdir -p $LOG_DIR
+    mkdir -p "$LOG_DIR"
     touch "$LOG_FILENAME"
     read -r -p 'Work done: ' work
     clear_line
@@ -245,8 +242,7 @@ if [ -f "$LOG_FILENAME" ]; then
     START=$(wc -l < "$LOG_FILENAME")
     START=$((START+1))
 fi
-while true
-do
+while true; do
     single_pomodoro_run $START
     START=$((START+1))
 done
