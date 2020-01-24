@@ -240,7 +240,8 @@ main () {
     # infinite loop
     START=1
     if [ -f "$LOG_FILENAME" ]; then
-        START=$(wc -l < "$LOG_FILENAME")
+        arr=($(tail -1 $LOG_FILENAME))
+        START=${arr[1]}
         START=$((START+1))
     fi
     while true; do
