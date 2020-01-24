@@ -240,8 +240,8 @@ main () {
     # infinite loop
     START=1
     if [ -f "$LOG_FILENAME" ]; then
-        arr=($(tail -1 $LOG_FILENAME))
-        START=${arr[1]}
+        arr=($(tail -1 $LOG_FILENAME)) # create an array of words from the last line
+        START=${arr[1]} # second item is the latest pomodoro
         START=$((START+1))
     fi
     while true; do
