@@ -247,8 +247,9 @@ main () {
     # infinite loop
     local pomodoro_count=1
     if [ -f "$LOG_FILENAME" ]; then
-        pomodoro_count=$(wc -l < "$LOG_FILENAME")
-        pomodoro_count=$((pomodoro_count+1))
+        arr=($(tail -1 $LOG_FILENAME)) # create an array of words from the last line
+        START=${arr[1]} # second item is the latest pomodoro
+        START=$((START+1))
     fi
     while true; do
         single_pomodoro_run $pomodoro_count
