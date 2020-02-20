@@ -15,6 +15,7 @@ SECS_IN_MINUTE=60
 LOG_DIR="$HOME/.pomodoro/"
 FILENAME="$(date +"%F").log"
 LOG_FILENAME="$LOG_DIR$FILENAME"
+VIEW_LOGS=0
 
 play_notification () {
     paplay $SOUNDFILE
@@ -211,6 +212,7 @@ EOF
 #   SECS_IN_MINUTE
 #   LOG_DIF
 #   LOG_FILENAME
+#   VIEW_LOGS
 options () {
     while getopts "p:r:dlh" OPTION; do
         case $OPTION in
@@ -226,8 +228,7 @@ options () {
                 LOG_FILENAME="$LOG_DIR$FILENAME"
                 ;;
             l)
-                view_logs
-                exit 1
+                VIEW_LOGS=1
                 ;;
             h)
                 show_help
@@ -243,6 +244,10 @@ options () {
 
 main () {
     options "$@"
+    if [ $VIEW_LOGS = 1 ]; then
+        view_logs
+        exit 1
+    fi
     rename_window_in_tmux
     # infinite loop
     local pomodoro_count=1
