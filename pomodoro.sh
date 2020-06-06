@@ -85,27 +85,17 @@ pause_forever () {
     clear_line
 }
 
-# Calls count_down with work time 
-# Globals:
-#   WORK
-# Arguments:
-#   b (Optional $1): the number of times break has been avoided
-work () {
-    if [ -n "$1" ]; then
-        count_down $WORK "\tTime spent:" "$1"
-    else
-        count_down $WORK "\tTime spent:"
-    fi
-}
 
-# Calls count_down with rest time 
-# Globals:
-#   REST
-rest () {
-    if [ -n "$1" ]; then
-        count_down $REST "\tRested for:" "$1"
+# Countdowns to zero depending on whether working or resting
+# Arguments:
+#   time in minutes ($1)
+#   message ($2)
+#   b (Optional $3): the number of times break has been avoided
+work_or_rest () {
+    if [ -n "$3" ]; then
+        count_down "$1" "$2" "$3"
     else
-        count_down $REST "\tRested for:"
+        count_down "$1" "$2"
     fi
 }
 
@@ -142,6 +132,9 @@ EOF
 }
 
 # Runs one complete pomodoro i.e. with work and rest
+# Globals:
+#   WORK
+#   REST
 # Arguments:
 #   n : The current pomodoro number
 single_pomodoro_run () {
@@ -150,7 +143,7 @@ single_pomodoro_run () {
     local work_continue=0
     local work_no=0
     while ((work_continue == 0)); do
-        work $work_no
+        work_or_rest $WORK "\tTime spent:" $work_no
         chiming_with_input
         work_continue=$? # result from previous command
         work_no=$((work_no+1))
@@ -160,7 +153,7 @@ single_pomodoro_run () {
     local rest_continue=0
     local rest_no=0
     while ((rest_continue == 0));do
-        rest $rest_no
+        work_or_rest $REST "\tRested for:" "$rest_no"
         chiming_with_input
         rest_continue=$?
         rest_no=$((rest_no+1))
