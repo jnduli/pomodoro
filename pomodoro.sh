@@ -102,7 +102,11 @@ work () {
 # Globals:
 #   REST
 rest () {
-    count_down $REST "\tRested for"
+    if [ -n "$1" ]; then
+        count_down $REST "\tRested for:" "$1"
+    else
+        count_down $REST "\tRested for:"
+    fi
 }
 
 # Plays notification until key is pressed
@@ -153,8 +157,14 @@ single_pomodoro_run () {
     done
     local end_time=$(date +%R)
     log "$1" "$start_time - $end_time"
-    rest
-    chiming_with_input
+    local rest_continue=0
+    local rest_no=0
+    while ((rest_continue == 0));do
+        rest $rest_no
+        chiming_with_input
+        rest_continue=$?
+        rest_no=$((rest_no+1))
+    done
 }
 
 rename_window_in_tmux () {
