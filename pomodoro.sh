@@ -90,13 +90,15 @@ pause_forever () {
 # Arguments:
 #   time in minutes ($1)
 #   message ($2)
-#   b (Optional $3): the number of times break has been avoided
 work_or_rest () {
-    if [ -n "$3" ]; then
-        count_down "$1" "$2" "$3"
-    else
-        count_down "$1" "$2"
-    fi
+    local task_continue=0
+    local task_no=0
+    while ((task_continue == 0)); do
+        count_down "$1" "$2" $task_no
+        chiming_with_input
+        task_continue=$? # result from previous command
+        task_no=$((task_no+1))
+    done
 }
 
 # Plays notification until key is pressed
@@ -140,24 +142,10 @@ EOF
 single_pomodoro_run () {
     echo "Pomodoro $1"
     local start_time=$(date +%R)
-    local work_continue=0
-    local work_no=0
-    while ((work_continue == 0)); do
-        work_or_rest $WORK "\tTime spent:" $work_no
-        chiming_with_input
-        work_continue=$? # result from previous command
-        work_no=$((work_no+1))
-    done
+    work_or_rest $WORK "\tTime spent:"
     local end_time=$(date +%R)
     log "$1" "$start_time - $end_time"
-    local rest_continue=0
-    local rest_no=0
-    while ((rest_continue == 0));do
-        work_or_rest $REST "\tRested for:" "$rest_no"
-        chiming_with_input
-        rest_continue=$?
-        rest_no=$((rest_no+1))
-    done
+    work_or_rest $REST "\tRested for:"
 }
 
 rename_window_in_tmux () {
