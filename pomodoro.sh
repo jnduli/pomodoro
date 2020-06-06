@@ -15,6 +15,8 @@ SECS_IN_MINUTE=60
 LOG_DIR="$HOME/.pomodoro/"
 FILENAME="$(date +"%F").log"
 LOG_FILENAME="$LOG_DIR$FILENAME"
+SHOULD_LOG=1
+VIEW_LOGS=0
 
 play_notification () {
     paplay $SOUNDFILE
@@ -144,7 +146,9 @@ single_pomodoro_run () {
     local start_time=$(date +%R)
     work_or_rest $WORK "\tTime spent:"
     local end_time=$(date +%R)
-    log "$1" "$start_time - $end_time"
+    if [ $SHOULD_LOG = 1 ]; then
+        log "$1" "$start_time - $end_time"
+    fi
     work_or_rest $REST "\tRested for:"
 }
 
@@ -191,6 +195,7 @@ pomodoro.sh:
  -p <arg>: Set time for actual work
  -r <arg>: Set time for rest
  -l: Daily retrospection (Show work done during the day)
+ -q: Disable logging of work
  -d: debug mode (The time counter uses seconds instead of minutes)
 EOF
 }
@@ -202,8 +207,10 @@ EOF
 #   SECS_IN_MINUTE
 #   LOG_DIF
 #   LOG_FILENAME
+#   VIEW_LOGS
+#   SHOULD_LOG
 options () {
-    while getopts "p:r:dlh" OPTION; do
+    while getopts "p:r:dlhq" OPTION; do
         case $OPTION in
             p)
                 WORK=$OPTARG
@@ -217,12 +224,14 @@ options () {
                 LOG_FILENAME="$LOG_DIR$FILENAME"
                 ;;
             l)
-                view_logs
-                exit 1
+                VIEW_LOGS=1
                 ;;
             h)
                 show_help
                 exit 1
+                ;;
+            q)
+                SHOULD_LOG=0
                 ;;
             \?)
                 echo "Invalid option: -$OPTARG" >&2
@@ -234,6 +243,10 @@ options () {
 
 main () {
     options "$@"
+    if [ $VIEW_LOGS = 1 ]; then
+        view_logs
+        exit 1
+    fi
     rename_window_in_tmux
     # infinite loop
     local pomodoro_count=1
