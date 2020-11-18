@@ -6,9 +6,11 @@
 
 # TODO:
 # - [ ] dunst notifications
-# - [ ] long form commands
+# - [X] long form commands
 # - [ ] testing code
 # - [X] differentiate work and break messages
+# -q should disable sounds in notifications
+# should_log should be set as a config variable
 
 scriptDir=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
 cd "$scriptDir" || exit
@@ -23,9 +25,25 @@ FILENAME="$(date +"%F").log"
 LOG_FILENAME="$LOG_DIR$FILENAME"
 SHOULD_LOG=1
 VIEW_LOGS=0
+NOTIFICATION_TYPE="sound"
 
-play_notification () {
-    paplay $SOUNDFILE
+
+
+# Plays or uses notify-send to send notification
+# Arguments
+#   notification_type
+# Returns
+#   None
+notify () {
+    local notify_type="sound"
+    if [ -n "$1" ]; then
+        notify_type=$1
+    fi
+    if [[ ${notify_type} == "sound" ]]; then
+        paplay $SOUNDFILE
+    else
+        notify-send --app-name="pomodoro" "Check pomodoro, either break or work has ended"
+    fi
 }
 
 # Deletes n lines and places cursor on previous line 
@@ -126,8 +144,8 @@ EOF
     SECONDS=0
     local should_continue
     while true; do
-        play_notification
-        read -r -t 0.25 -N 1 input
+        notify $NOTIFICATION_TYPE
+        read -r -t 1.0 -N 1 input
         duration=$SECONDS
         clear_line
         echo "Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
@@ -205,7 +223,7 @@ pomodoro.sh:
  -p <arg>: Set time for actual work (Same as -w)
  -r <arg>: Set time for rest
  -l: Daily retrospection (Show work done during the day)
- -q: Disable logging of work
+ -q: quiet (notify does not play sound)
  -d: debug mode (The time counter uses seconds instead of minutes)
 EOF
 }
@@ -235,7 +253,7 @@ options () {
                 show_help
                 exit 1
                 ;;
-            q) SHOULD_LOG=0 ;;
+            q) NOTIFICATION_TYPE="dunst" ;;
             \?)
                 echo "Invalid option: -$OPTARG" >&2
                 exit 1
