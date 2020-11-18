@@ -201,7 +201,8 @@ pomodoro.sh:
  You can also press q to quit the program
 
  -h: Show help file
- -p <arg>: Set time for actual work
+ -w <arg>: Set time for actual work
+ -p <arg>: Set time for actual work (Same as -w)
  -r <arg>: Set time for rest
  -l: Daily retrospection (Show work done during the day)
  -q: Disable logging of work
@@ -219,29 +220,22 @@ EOF
 #   VIEW_LOGS
 #   SHOULD_LOG
 options () {
-    while getopts "p:r:dlhq" OPTION; do
+    while getopts "w:p:r:dlhq" OPTION; do
         case $OPTION in
-            p)
-                WORK=$OPTARG
-                ;;
-            r)
-                REST=$OPTARG
-                ;;
+            w) WORK=$OPTARG ;;
+            p) WORK=$OPTARG ;;
+            r) REST=$OPTARG ;;
             d)
                 SECS_IN_MINUTE=1
                 LOG_DIR=".logs/"
                 LOG_FILENAME="$LOG_DIR$FILENAME"
                 ;;
-            l)
-                VIEW_LOGS=1
-                ;;
+            l) VIEW_LOGS=1 ;;
             h)
                 show_help
                 exit 1
                 ;;
-            q)
-                SHOULD_LOG=0
-                ;;
+            q) SHOULD_LOG=0 ;;
             \?)
                 echo "Invalid option: -$OPTARG" >&2
                 exit 1
