@@ -4,6 +4,12 @@
 #
 # For countdown the SECONDS (see man bash) variable is used
 
+# TODO:
+# - [ ] dunst notifications
+# - [ ] long form commands
+# - [ ] testing code
+# - [X] differentiate work and break messages
+
 scriptDir=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
 cd "$scriptDir" || exit
 
@@ -106,12 +112,15 @@ work_or_rest () {
 # Plays notification until key is pressed
 # Globals:
 #   SECONDS
+# Arguments:
+#   next session (break or work) ($1)
+#   current session (break or work) ($2)
 # Returns
 #   0 for True, 1 for False
 chiming_with_input () {
     cat <<EOF
-Press q to stop chiming and start break
-Press c to continue with task
+Press q to stop chiming and start $1 
+Press c to continue with $2
 EOF
     echo ""
     SECONDS=0
