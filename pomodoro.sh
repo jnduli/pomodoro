@@ -5,10 +5,11 @@
 # For countdown the SECONDS (see man bash) variable is used
 
 # TODO:
-# - [ ] dunst notifications
+# - [X] dunst notifications
 # - [X] long form commands
 # - [ ] testing code
 # - [X] differentiate work and break messages
+# - [ ] add support for config files
 # -q should disable sounds in notifications
 # should_log should be set as a config variable
 
@@ -26,6 +27,7 @@ LOG_FILENAME="$LOG_DIR$FILENAME"
 SHOULD_LOG=1
 VIEW_LOGS=0
 NOTIFICATION_TYPE="sound"
+DISABLE_NOTIFICATIONS_WHILE_WORKING=1
 
 
 
@@ -174,6 +176,11 @@ single_pomodoro_run () {
     local start_time=$(date +%R)
     local work_continue=0
     local work_no=0
+
+    if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
+        notify-send "DUNST_COMMAND_PAUSE"
+    fi
+
     while ((work_continue == 0)); do
         work $work_no
         chiming_with_input "break" "work"
@@ -184,6 +191,11 @@ single_pomodoro_run () {
     if [ $SHOULD_LOG = 1 ]; then
         log "$1" "$start_time - $end_time"
     fi
+
+    if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
+        notify-send "DUNST_COMMAND_RESUME"
+    fi
+
     rest
     chiming_with_input "work" "break"
 }
