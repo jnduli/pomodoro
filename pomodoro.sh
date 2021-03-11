@@ -27,8 +27,6 @@ SHOULD_LOG=1
 VIEW_LOGS=0
 NOTIFICATION_TYPE="sound"
 
-
-
 # Plays or uses notify-send to send notification
 # Arguments
 #   notification_type
