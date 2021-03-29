@@ -29,8 +29,6 @@ VIEW_LOGS=0
 NOTIFICATION_TYPE="sound"
 DISABLE_NOTIFICATIONS_WHILE_WORKING=1
 
-
-
 # Plays or uses notify-send to send notification
 # Arguments
 #   notification_type
@@ -113,24 +111,20 @@ pause_forever () {
     clear_line
 }
 
-# Calls count_down with work time 
-# Globals:
-#   WORK
-# Arguments:
-#   b (Optional $1): the number of times break has been avoided
-work () {
-    if [ -n "$1" ]; then
-        count_down $WORK "\tTime spent:" "$1"
-    else
-        count_down $WORK "\tTime spent:"
-    fi
-}
 
-# Calls count_down with rest time 
-# Globals:
-#   REST
-rest () {
-    count_down $REST "\tRested for"
+# Countdowns to zero depending on whether working or resting
+# Arguments:
+#   time in minutes ($1)
+#   message ($2)
+work_or_rest () {
+    local task_continue=0
+    local task_no=0
+    while ((task_continue == 0)); do
+        count_down "$1" "$2" $task_no
+        chiming_with_input
+        task_continue=$? # result from previous command
+        task_no=$((task_no+1))
+    done
 }
 
 # Plays notification until key is pressed
@@ -169,25 +163,23 @@ EOF
 }
 
 # Runs one complete pomodoro i.e. with work and rest
+# Globals:
+#   WORK
+#   REST
 # Arguments:
 #   n : The current pomodoro number
 single_pomodoro_run () {
     echo "Pomodoro $1"
-    local start_time=$(date +%R)
-    local work_continue=0
-    local work_no=0
+    local start_time
+    start_time=$(date +%R)
 
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         notify-send "DUNST_COMMAND_PAUSE"
     fi
+    work_or_rest $WORK "\tTime spent:"
 
-    while ((work_continue == 0)); do
-        work $work_no
-        chiming_with_input "break" "work"
-        work_continue=$? # result from previous command
-        work_no=$((work_no+1))
-    done
-    local end_time=$(date +%R)
+    local end_time
+    end_time=$(date +%R)
     if [ $SHOULD_LOG = 1 ]; then
         log "$1" "$start_time - $end_time"
     fi
@@ -195,9 +187,8 @@ single_pomodoro_run () {
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         notify-send "DUNST_COMMAND_RESUME"
     fi
+    work_or_rest $REST "\tRested for:"
 
-    rest
-    chiming_with_input "work" "break"
 }
 
 rename_window_in_tmux () {
