@@ -174,7 +174,7 @@ single_pomodoro_run () {
     start_time=$(date +%R)
 
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
-        notify-send "DUNST_COMMAND_PAUSE"
+        dunstctl set-paused true
     fi
     work_or_rest $WORK "\tTime spent:"
 
@@ -185,7 +185,7 @@ single_pomodoro_run () {
     fi
 
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
-        notify-send "DUNST_COMMAND_RESUME"
+        dunstctl set-paused false
     fi
     work_or_rest $REST "\tRested for:"
 
