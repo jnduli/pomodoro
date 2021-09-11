@@ -35,10 +35,7 @@ DISABLE_NOTIFICATIONS_WHILE_WORKING=1
 # Returns
 #   None
 notify () {
-    local notify_type="sound"
-    if [ -n "$1" ]; then
-        notify_type=$1
-    fi
+    local notify_type=$1
     if [[ ${notify_type} == "sound" ]]; then
         paplay $SOUNDFILE
     else
@@ -255,7 +252,7 @@ options () {
             w) WORK=$OPTARG ;;
             p) WORK=$OPTARG ;;
             r) REST=$OPTARG ;;
-            d)
+            d) # debug mode options
                 SECS_IN_MINUTE=1
                 LOG_DIR=".logs/"
                 LOG_FILENAME="$LOG_DIR$FILENAME"
