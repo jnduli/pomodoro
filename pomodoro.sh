@@ -7,6 +7,7 @@
 scriptDir=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
 cd "$scriptDir" || exit
 
+readonly VERSION='0.1'
 readonly SOUNDFILE='alarm.oga'
 readonly CONFIG_FILE="$HOME/.config/pomodoro/config"
 
@@ -211,7 +212,7 @@ log () {
 show_help () {
     cat <<EOF
 Copyright (C) 2019: John Nduli K.                                                                                                      
-pomodoro.sh:
+pomodoro.sh version $VERSION:
  This runs pomodoro from your terminal
  During a count down, you can press p to pause/unpause the program
  You can also press q to quit the program
