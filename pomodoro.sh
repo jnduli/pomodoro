@@ -4,11 +4,6 @@
 #
 # For countdown the SECONDS (see man bash) variable is used
 
-# TODO:
-# - [ ] add support for config files
-# -q should disable sounds in notifications
-# should_log should be set as a config variable
-
 scriptDir=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
 cd "$scriptDir" || exit
 
@@ -21,7 +16,7 @@ REST=5
 SECS_IN_MINUTE=60
 LOG_DIR="$HOME/.pomodoro/"
 FILENAME="$(date +"%F").log"
-SHOULD_LOG=0 # can be 0 or 1
+SHOULD_LOG=1 # can be 0 or 1
 NOTIFICATION_TYPE="sound" # can also be dunst
 DISABLE_NOTIFICATIONS_WHILE_WORKING=1 # can be 0 or 1
 
@@ -206,7 +201,7 @@ rename_window_in_tmux () {
 log () {
     log_filename="$LOG_DIR$FILENAME"
     mkdir -p "$LOG_DIR"
-    touch "$log_file_name"
+    touch "$log_filename"
     read -r -p 'Work done: ' work
     clear_line
     echo -e '\tWork done: ' "$work"
@@ -220,6 +215,9 @@ pomodoro.sh:
  This runs pomodoro from your terminal
  During a count down, you can press p to pause/unpause the program
  You can also press q to quit the program
+
+ Customization can be done by setting up these variables in a ~/.config/pomodoro/config file:
+ WORK, REST, LOG_DIR, SHOULD_LOG, NOTIFICATION_TYPE, DISABLE_NOTIFICATIONS_WHILE_WORKING
 
  -h: Show help file
  -w <arg>: Set time for actual work
@@ -268,6 +266,7 @@ main () {
     options "$@"
     rename_window_in_tmux
     # infinite loop
+    echo "Starting pomodoro, work set to $WORK and rest to $REST minutes"
     local pomodoro_count=1
     if [ -f "$LOG_DIR$FILENAME" ]; then
         arr=($(tail -1 $LOG_DIR$FILENAME)) # create an array of words from the last line
