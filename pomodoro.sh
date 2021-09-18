@@ -4,22 +4,45 @@
 #
 # For countdown the SECONDS (see man bash) variable is used
 
+# TODO:
+# - [ ] add support for config files
+# -q should disable sounds in notifications
+# should_log should be set as a config variable
+
 scriptDir=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
 cd "$scriptDir" || exit
 
 readonly SOUNDFILE='alarm.oga'
+readonly CONFIG_FILE="$HOME/.config/pomodoro/config"
 
+# these variables can be changed in a config file
 WORK=25
 REST=5
 SECS_IN_MINUTE=60
 LOG_DIR="$HOME/.pomodoro/"
 FILENAME="$(date +"%F").log"
-LOG_FILENAME="$LOG_DIR$FILENAME"
-SHOULD_LOG=1
-VIEW_LOGS=0
+SHOULD_LOG=0 # can be 0 or 1
+NOTIFICATION_TYPE="sound" # can also be dunst
+DISABLE_NOTIFICATIONS_WHILE_WORKING=1 # can be 0 or 1
 
-play_notification () {
-    paplay $SOUNDFILE
+# Loading values from configuration file stored in ~/.config/pomodoro/config.sh
+if [ -f "$CONFIG_FILE" ]; then
+    source CONFIG_FILE
+fi
+
+
+# Plays or uses notify-send to send notification
+# Arguments
+#   notification_type
+# Returns
+#   None
+notify () {
+    local notify_type=$1
+    if [[ ${notify_type} == "sound" ]]; then
+        paplay $SOUNDFILE
+    else
+        notify-send --app-name="pomodoro" "Check pomodoro, either break or work has ended"
+    fi
 }
 
 # Deletes n lines and places cursor on previous line 
@@ -106,19 +129,22 @@ work_or_rest () {
 # Plays notification until key is pressed
 # Globals:
 #   SECONDS
+# Arguments:
+#   next session (break or work) ($1)
+#   current session (break or work) ($2)
 # Returns
 #   0 for True, 1 for False
 chiming_with_input () {
     cat <<EOF
-Press q to stop chiming and start break
-Press c to continue with task
+Press q to stop chiming and start $1 
+Press c to continue with $2
 EOF
     echo ""
     SECONDS=0
     local should_continue
     while true; do
-        play_notification
-        read -r -t 0.25 -N 1 input
+        notify $NOTIFICATION_TYPE
+        read -r -t 1.0 -N 1 input
         duration=$SECONDS
         clear_line
         echo "Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
@@ -143,13 +169,25 @@ EOF
 #   n : The current pomodoro number
 single_pomodoro_run () {
     echo "Pomodoro $1"
-    local start_time=$(date +%R)
+    local start_time
+    start_time=$(date +%R)
+
+    if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
+        dunstctl set-paused true
+    fi
     work_or_rest $WORK "\tTime spent:"
-    local end_time=$(date +%R)
+
+    local end_time
+    end_time=$(date +%R)
     if [ $SHOULD_LOG = 1 ]; then
-        log "$1" "$start_time - $end_time"
+        log "$1" "$start_time - $end_time" "$LOG_DIR$FILENAME"
+    fi
+
+    if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
+        dunstctl set-paused false
     fi
     work_or_rest $REST "\tRested for:"
+
 }
 
 rename_window_in_tmux () {
@@ -158,29 +196,21 @@ rename_window_in_tmux () {
     fi
 }
 
-# Show the current day's work
-# Globals:
-#   LOG_FILENAME
-view_logs () {
-    # show the day's logs when called
-    # should add support to view other days logs
-    cat "$LOG_FILENAME"
-}
-
 # Add work done to day's logs
 # Globals:
 #   LOG_DIR
-#   LOG_FILENAME
 # Arguments:
 #   n - pomodoro number
 #   t - time string ie. (starttime - endtime)
+#   file_name
 log () {
+    log_filename="$LOG_DIR$FILENAME"
     mkdir -p "$LOG_DIR"
-    touch "$LOG_FILENAME"
+    touch "$log_file_name"
     read -r -p 'Work done: ' work
     clear_line
     echo -e '\tWork done: ' "$work"
-    echo 'Pomodoro' "$1" "($2):" "$work" >> "$LOG_FILENAME"
+    echo 'Pomodoro' "$1" "($2):" "$work" >> "$log_filename"
 }
 
 show_help () {
@@ -192,10 +222,11 @@ pomodoro.sh:
  You can also press q to quit the program
 
  -h: Show help file
- -p <arg>: Set time for actual work
+ -w <arg>: Set time for actual work
+ -p <arg>: Set time for actual work (Same as -w)
  -r <arg>: Set time for rest
  -l: Daily retrospection (Show work done during the day)
- -q: Disable logging of work
+ -q: quiet (notify does not play sound)
  -d: debug mode (The time counter uses seconds instead of minutes)
 EOF
 }
@@ -206,33 +237,25 @@ EOF
 #   REST
 #   SECS_IN_MINUTE
 #   LOG_DIF
-#   LOG_FILENAME
-#   VIEW_LOGS
 #   SHOULD_LOG
 options () {
-    while getopts "p:r:dlhq" OPTION; do
+    while getopts "w:p:r:dlhq" OPTION; do
         case $OPTION in
-            p)
-                WORK=$OPTARG
-                ;;
-            r)
-                REST=$OPTARG
-                ;;
-            d)
+            w) WORK=$OPTARG ;;
+            p) WORK=$OPTARG ;;
+            r) REST=$OPTARG ;;
+            d) # debug mode options
                 SECS_IN_MINUTE=1
                 LOG_DIR=".logs/"
-                LOG_FILENAME="$LOG_DIR$FILENAME"
                 ;;
-            l)
-                VIEW_LOGS=1
-                ;;
+            l) cat "$LOG_DIR$FILENAME" # view daily logs
+               exit 1
+               ;;
             h)
                 show_help
                 exit 1
                 ;;
-            q)
-                SHOULD_LOG=0
-                ;;
+            q) NOTIFICATION_TYPE="dunst" ;;
             \?)
                 echo "Invalid option: -$OPTARG" >&2
                 exit 1
@@ -243,15 +266,11 @@ options () {
 
 main () {
     options "$@"
-    if [ $VIEW_LOGS = 1 ]; then
-        view_logs
-        exit 1
-    fi
     rename_window_in_tmux
     # infinite loop
     local pomodoro_count=1
-    if [ -f "$LOG_FILENAME" ]; then
-        arr=($(tail -1 $LOG_FILENAME)) # create an array of words from the last line
+    if [ -f "$LOG_DIR$FILENAME" ]; then
+        arr=($(tail -1 $LOG_DIR$FILENAME)) # create an array of words from the last line
         START=${arr[1]} # second item is the latest pomodoro
         pomodoro_count=$((START+1))
     fi
