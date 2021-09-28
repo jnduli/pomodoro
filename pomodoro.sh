@@ -23,7 +23,8 @@ DISABLE_NOTIFICATIONS_WHILE_WORKING=1 # can be 0 or 1
 
 # Loading values from configuration file stored in ~/.config/pomodoro/config.sh
 if [ -f "$CONFIG_FILE" ]; then
-    source CONFIG_FILE
+    # shellcheck source=/dev/null
+    source "${CONFIG_FILE}"
 fi
 
 
