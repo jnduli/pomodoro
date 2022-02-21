@@ -166,6 +166,9 @@ EOF
 #   n : The current pomodoro number
 single_pomodoro_run () {
     echo "Pomodoro $1"
+    read -r -p 'Work to do: ' work
+    clear_line
+    echo -e '\tWork to do: ' "$work"
     local start_time
     start_time=$(date +%R)
 
