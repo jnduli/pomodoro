@@ -4,6 +4,10 @@
 #
 # For countdown the SECONDS (see man bash) variable is used
 
+# unofficial strict mode: http://redsymbol.net/articles/unofficial-bash-strict-mode/
+set -euo pipefail
+IFS=$'\t\n'
+
 scriptDir=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
 cd "$scriptDir" || exit
 
@@ -48,10 +52,7 @@ notify () {
 # Returns
 #   None
 clear_line () {
-    local lines=1
-    if [ -n "$1" ]; then
-        lines=$1
-    fi
+    local lines=${1:-1} # defaults to 1
     while (( lines > 0 )); do 
         printf "\033[1A"  # move cursor one line up
         printf "\033[K"   # delete till end of line
@@ -65,26 +66,27 @@ clear_line () {
 #   SECONDS
 # Arguments:
 #   time in minutes ($1)
-#   message ($2)
-#   b (Optional $3): the number of times break has been avoided
+#   break_avoided (Optional $2): the number of times break has been avoided
 count_down () {
+    # changes in refactor
+    #   removing messages
     local secs_to_count_down=$(($1*SECS_IN_MINUTE))
-    local message=$2
     local printed_minutes=0
-    echo -e "$message $printed_minutes minutes"
+
+    echo -e "\tTime spent $printed_minutes minutes"
     SECONDS=0 
-    if [ -n "$3" ]; then
-        SECONDS=$(($1*SECS_IN_MINUTE*$3))
-        secs_to_count_down=$((($3+1)*$1*SECS_IN_MINUTE))
+    if [ -n "$2" ]; then
+        SECONDS=$(($1*SECS_IN_MINUTE*$2))
+        secs_to_count_down=$((($2+1)*$1*SECS_IN_MINUTE))
     fi
     while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
         minutes=$((SECONDS/SECS_IN_MINUTE))
-        if [[ $printed_minutes != "$minutes" ]]; then # stops stuttering of screen by second by second update
+        if [[ $printed_minutes != "$minutes" ]]; then # updates screen after every minute, preventing stuttering
             printed_minutes=$minutes
             clear_line
-            echo -e "$message $printed_minutes minutes"
+            echo -e "\tTime spent $printed_minutes minutes"
         fi
-        read -r -t 0.25 -N 1 input
+        read -r -t 0.25 -N 1 input || true # no input fails with non zero status
         if [[ ${input^^} = "P" ]]; then
             local pausedtime=$SECONDS
             pause_forever
@@ -95,11 +97,12 @@ count_down () {
     done
 }
 
+
 # Stops everything until p is pressed
 pause_forever () {
     echo "PAUSED, press p to unpause"
     while true; do
-        read -r -t 0.25 -N 1 input
+        read -r -t 0.25 -N 1 input || true
         if [[ ${input^^} = 'P' ]]; then
             break
         fi
@@ -113,12 +116,11 @@ pause_forever () {
 #   time in minutes ($1)
 #   message ($2)
 work_or_rest () {
-    local task_continue=0
+    task_continue=0
     local task_no=0
     while ((task_continue == 0)); do
-        count_down "$1" "$2" $task_no
-        chiming_with_input
-        task_continue=$? # result from previous command
+        count_down "$1" "$task_no"
+        chiming_with_input task_continue # task_continue is set in the called function
         task_no=$((task_no+1))
     done
 }
@@ -126,22 +128,22 @@ work_or_rest () {
 # Plays notification until key is pressed
 # Globals:
 #   SECONDS
-# Arguments:
-#   next session (break or work) ($1)
-#   current session (break or work) ($2)
+# Argumenets
+# $1 variable to set to return type
 # Returns
 #   0 for True, 1 for False
 chiming_with_input () {
     cat <<EOF
-Press q to stop chiming and start $1 
-Press c to continue with $2
+Press q to stop chiming and start next session
+Press c to continue with rest/work
 EOF
     echo ""
     SECONDS=0
     local should_continue
     while true; do
         notify $NOTIFICATION_TYPE
-        read -r -t 1.0 -N 1 input
+        read -r -t 1.0 -N 1 input || true
+        input=${input:-R}
         duration=$SECONDS
         clear_line
         echo "Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
@@ -155,7 +157,7 @@ EOF
         fi
     done
     clear_line 3
-    return $should_continue
+    eval "$1=$should_continue" # set first parameter to have the return type
 }
 
 # Runs one complete pomodoro i.e. with work and rest
@@ -166,9 +168,9 @@ EOF
 #   n : The current pomodoro number
 single_pomodoro_run () {
     echo "Pomodoro $1"
-    read -r -p 'Work to do: ' work
+    read -r -p 'Plan: ' work
     clear_line
-    echo -e '\tWork to do: ' "$work"
+    echo -e '\tPlan: ' "$work"
     local start_time
     start_time=$(date +%R)
 
@@ -187,7 +189,6 @@ single_pomodoro_run () {
         dunstctl set-paused false
     fi
     work_or_rest $REST "\tRested for:"
-
 }
 
 rename_window_in_tmux () {
@@ -254,10 +255,9 @@ options () {
             l) cat "$LOG_DIR$FILENAME" # view daily logs
                exit 1
                ;;
-            h)
-                show_help
-                exit 1
-                ;;
+            h) show_help
+               exit 1
+               ;;
             q) NOTIFICATION_TYPE="dunst" ;;
             \?)
                 echo "Invalid option: -$OPTARG" >&2
@@ -270,14 +270,15 @@ options () {
 main () {
     options "$@"
     rename_window_in_tmux
-    # infinite loop
-    echo "Starting pomodoro, work set to $WORK and rest to $REST minutes"
+    echo "Starting pomodoro, work=$WORK and rest=$REST minutes"
     local pomodoro_count=1
+    echo $LOG_DIR$FILENAME
     if [ -f "$LOG_DIR$FILENAME" ]; then
-        arr=($(tail -1 $LOG_DIR$FILENAME)) # create an array of words from the last line
+        mapfile -td' ' arr < <(tail -1 $LOG_DIR$FILENAME) # create array of words from last line in logs
         START=${arr[1]} # second item is the latest pomodoro
         pomodoro_count=$((START+1))
     fi
+    # infinite loop
     while true; do
         single_pomodoro_run $pomodoro_count
         pomodoro_count=$((pomodoro_count+1))
