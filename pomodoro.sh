@@ -272,7 +272,6 @@ main () {
     rename_window_in_tmux
     echo "Starting pomodoro, work=$WORK and rest=$REST minutes"
     local pomodoro_count=1
-    echo $LOG_DIR$FILENAME
     if [ -f "$LOG_DIR$FILENAME" ]; then
         mapfile -td' ' arr < <(tail -1 $LOG_DIR$FILENAME) # create array of words from last line in logs
         START=${arr[1]} # second item is the latest pomodoro
