@@ -274,7 +274,7 @@ main () {
     local pomodoro_count=1
     if [ -f "$LOG_DIR$FILENAME" ]; then
         mapfile -td' ' arr < <(tail -1 $LOG_DIR$FILENAME) # create array of words from last line in logs
-        START=${arr[1]} # second item is the latest pomodoro
+        START=${arr[1]:-0} # second item is the latest pomodoro
         pomodoro_count=$((START+1))
     fi
     # infinite loop
