@@ -73,7 +73,7 @@ count_down () {
     local secs_to_count_down=$(($1*SECS_IN_MINUTE))
     local printed_minutes=0
 
-    echo -e "\tTime spent $printed_minutes minutes"
+    echo -e "\t\tTime spent $printed_minutes minutes"
     SECONDS=0 
     if [ -n "$2" ]; then
         SECONDS=$(($1*SECS_IN_MINUTE*$2))
@@ -84,7 +84,7 @@ count_down () {
         if [[ $printed_minutes != "$minutes" ]]; then # updates screen after every minute, preventing stuttering
             printed_minutes=$minutes
             clear_line
-            echo -e "\tTime spent $printed_minutes minutes"
+            echo -e "\t\tTime spent $printed_minutes minutes"
         fi
         read -r -t 0.25 -N 1 input || true # no input fails with non zero status
         if [[ ${input^^} = "P" ]]; then
@@ -114,7 +114,6 @@ pause_forever () {
 # Countdowns to zero depending on whether working or resting
 # Arguments:
 #   time in minutes ($1)
-#   message ($2)
 work_or_rest () {
     task_continue=0
     local task_no=0
@@ -177,7 +176,8 @@ single_pomodoro_run () {
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         dunstctl set-paused true
     fi
-    work_or_rest $WORK "\tTime spent:"
+    echo -e "\tStarting work:"
+    work_or_rest $WORK
 
     local end_time
     end_time=$(date +%R)
@@ -188,7 +188,8 @@ single_pomodoro_run () {
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         dunstctl set-paused false
     fi
-    work_or_rest $REST "\tRested for:"
+    echo -e "\tStarting rest:"
+    work_or_rest $REST
 }
 
 rename_window_in_tmux () {
