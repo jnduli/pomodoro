@@ -93,6 +93,14 @@ count_down () {
             SECONDS=$pausedtime
         elif [[ ${input^^} = "Q" ]]; then
             break
+        elif [[ ${input^^} = "A" ]]; then
+            # TODO: count down is becoming a little too godly for my liking, figure out a way to clean it up.
+            local pausedtime=$SECONDS
+            read -r -p 'Additional tasks: ' work
+            clear_line
+            echo -e '\tAdditional tasks: ' "$work"
+            SECONDS=$pausedtime
+            echo -e "\t\tTime spent ..."
         fi
     done
 }
