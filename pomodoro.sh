@@ -201,7 +201,8 @@ single_pomodoro_run () {
 }
 
 rename_window_in_tmux () {
-    if [[ -n $TMUX ]]; then
+    in_tmux=${TMUX:-""}
+    if [[ -n $in_tmux ]]; then
         tmux rename-window "pomodoro"
     fi
 }
