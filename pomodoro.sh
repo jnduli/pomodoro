@@ -39,10 +39,15 @@ fi
 #   None
 notify () {
     local notify_type=$1
-    if [[ ${notify_type} == "sound" ]]; then
-        paplay $SOUNDFILE
-    else
-        notify-send --app-name="pomodoro" "Check pomodoro, either break or work has ended"
+    # TODO: look for more generic way to detect this
+    local i3_lock_process
+    i3_lock_process=$(pgrep -c i3lock || true) ## I use i3lock together with xautolock
+    if [[ $i3_lock_process == "0" ]]; then
+        if [[ ${notify_type} == "sound" ]]; then
+            paplay $SOUNDFILE
+        else
+            notify-send --app-name="pomodoro" "Check pomodoro, either break or work has ended"
+        fi
     fi
 }
 
