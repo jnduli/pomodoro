@@ -1,0 +1,1 @@
+{"author":{"id":"9254dd543f72c8cedfcf0292ffa048ddbfa83781d9d615cbc0251c16fefd012b"},"ops":[{"type":1,"timestamp":1657246136,"nonce":"enoEfsDBf+xsWFuqI7tpgBrRd/I=","title":"Timer support to pomodoro","message":"Set this up such that doing `pomodoro -t 10m` starts a timer instead of a pomodoro session.","files":null}]}
