@@ -1,23 +1,24 @@
 # Better Outputs
 ## Objective
-Looking for a way to have better and more informative output. Also the code does
-output in many places, so a single entry point for this would be great.
+- Find better and more informative output
+- Have correct timer output
+- Single entry point for output in the script
 
 ## Design
 - think of a data structure that I can use to determine output
 - I need to persist previous pomodoro records, so support that too
-- Strike through and color support for things I've done and things in progress
-  and things I've chose not to do
+- Strike through and color support for tasks done and task in progress, and
+  cancelled tasks.
 
 
 Workflow:
 - on start, type out tasks I want to do
 - list the tasks with a number on them e.g. 1 play game, 2 eat lunch, ...
 - once done, I can mark them as done using d and the number of the item
-- a tasks marked as done is crossed out in the screen
-- similarly, I can mark a task as cancelled using c and the number of the item.
-- a cancelled item will be greyed out on the list of items
-- items can be added to the list using the a keyword.
+- cross out tasks that are marked done.
+- if I get a priority or change my plan, I mark a task as cancelled using c#.
+- grey out cancelled items.
+- add new tasks using a
 
 Example:
 
