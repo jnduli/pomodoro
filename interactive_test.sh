@@ -7,19 +7,62 @@ set -euo pipefail
 # - [ ] add extra items to this list
 #
 
+# Global variables
 TODO_List=()
-Done_Indices=(1 2)
-Abandonded_indices=(3)
+Done_Indices=()
+Abandonded_indices=()
+
+# Colors used in display
 # Set the color variable
-green='\033[0;32m'
-# Clear the color after that
-clear='\033[0m'
+green='\033[0;32m' # green for done tasks
+strikethrough='\033[0;9m' # strike through abandoned tasks
+clear='\033[0m' # clear formatting
 
-strikethrough='\033[0;9m'
+single_pomodoro_run () {
+    echo "Pomodoro $1"
+    read -r -p "Plan: " tasks 
+    readarray -td', ' TODO_List <<< "$tasks" # comma separated input
+    clear_line 1
+    refresh_output
 
-# printf "The script was executed ${green}successfully${clear}!"
+    while (( 1 > 0 )); do
+        read -r -t 0.25 -N 1 input || true 
+        if [[ ${input^^} == "A" ]]; then
+            add_to_list
+        elif [[ ${input^^} == "D" ]]; then
+            complete_task
+        elif [[ ${input^^} == "C" ]]; then
+            cancel_task
+        elif [[ ${input^^} == "Q" ]]; then
+            break
+        fi
+    done
 
-get_tasks_message () {
+    # read -r -p 'Plan: ' work
+    # echo -e '\tPlan: ' "$work"
+    # local start_time
+    # start_time=$(date +%R)
+
+    # if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
+    #     dunstctl set-paused true
+    # fi
+    # echo -e "\tStarting work:"
+    # work_or_rest $WORK
+
+    # local end_time
+    # end_time=$(date +%R)
+    # if [ $SHOULD_LOG = 1 ]; then
+    #     log "$1" "$start_time - $end_time" "$LOG_DIR$FILENAME"
+    # fi
+
+    # if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
+    #     dunstctl set-paused false
+    # fi
+    # echo -e "\tStarting rest:"
+    # work_or_rest $REST
+}
+
+refresh_output () {
     local output=""
     for (( i=0; i < ${#TODO_List[@]}; i ++ )); do
         if [[ " ${Done_Indices[*]} " =~ " ${i} " ]]; then
@@ -30,19 +73,30 @@ get_tasks_message () {
             output="$output $i: ${TODO_List[i]}, "
         fi
     done
-    echo "$output"
+    echo -e "$output"
 }
 
 add_to_list() {
-    # Demonstrates adding comma separated list to TODO List
-    # and outputing done tasks in a different color
-    # TODO: clean this up to make it more generic
-    # read -r -p "Plan: " tasks
-    # readarray -td', ' temp_arr <<< "$tasks"
-    temp_arr=("this" "is" "noone" "good")
+    read -r -p "Additional Tasks: " tasks 
+    readarray -td', ' temp_arr <<< "$tasks" # comma separated input
     TODO_List=(${TODO_List[@]} ${temp_arr[@]})
-    message=$(get_tasks_message)
-    echo -e "$message"
+    clear_line 1
+    refresh_output
+}
+
+complete_task() { # rename to complete task
+    read -r -p "Tasks no: " task_no
+    Done_Indices=(${Done_Indices[@]} $task_no)
+    echo "${Done_Indices[@]}"
+    clear_line 1
+    refresh_output
+}
+
+cancel_task() {
+    read -r -p "Tasks no: " task_no
+    Abandonded_indices=(${Abandonded_indices[@]} $task_no)
+    clear_line 1
+    refresh_output
 }
 
 
@@ -64,4 +118,4 @@ clear_line () {
     done
 }
 
-add_to_list
+single_pomodoro_run 1
