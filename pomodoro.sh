@@ -33,8 +33,8 @@ fi
 
 # Global variables
 TODO=()
-DONE=()
-ABANDONED=()
+declare -A COMPLETED
+declare -A ABANDONED
 CURRENT_TASK="work" # temporary value to help determine child tasks, TODO: Drop this
 
 # Colors used in display
@@ -93,6 +93,7 @@ count_down () {
     local secs_to_count_down=$(($1*SECS_IN_MINUTE))
     local printed_minutes=0
 
+    changed='f'
     pomodoro=$(refresh_current_pomodoro_output)
     printf "\t%b\n\t\tTime spend %s minutes\n" "$pomodoro" "$printed_minutes"
 
@@ -103,11 +104,12 @@ count_down () {
     fi
     while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
         minutes=$((SECONDS/SECS_IN_MINUTE))
-        if [[ $printed_minutes != "$minutes" ]]; then # updates screen after every minute, preventing stuttering
+        if [[ $changed == 't' || $printed_minutes != "$minutes" ]]; then # updates screen after every minute, preventing stuttering
             printed_minutes=$minutes
             clear_line 2
             pomodoro=$(refresh_current_pomodoro_output)
             printf "\t%b\n\t\tTime spend %s minutes\n" "$pomodoro" "$printed_minutes"
+            changed='f'
             # echo -e "\t\tTime spent $printed_minutes minutes"
         fi
         read -r -t 0.25 -N 1 input || true # no input fails with non zero status
@@ -118,14 +120,17 @@ count_down () {
         elif [[ ${input^^} == "A" ]]; then
             local pausedtime=$SECONDS
             add_to_list
+            changed='t'
             SECONDS=$pausedtime
         elif [[ ${input^^} == "D" ]]; then
             local pausedtime=$SECONDS
             complete_task
+            changed='t'
             SECONDS=$pausedtime
         elif [[ ${input^^} == "C" ]]; then
             local pausedtime=$SECONDS
             cancel_task
+            changed='t'
             SECONDS=$pausedtime
         elif [[ ${input^^} == "Q" ]]; then
             break
@@ -202,10 +207,11 @@ EOF
 
 refresh_current_pomodoro_output () {
     local output=""
+
     for (( i=0; i < ${#TODO[@]}; i ++ )); do
-        if [[ " ${DONE[*]} " =~ " ${i} " ]]; then
+        if [[ -v COMPLETED[$i] ]]; then
             output="$output $i: $green${TODO[i]}$clear, "
-        elif [[ " ${ABANDONED[*]} " =~ " ${i} " ]]; then
+        elif [[ -v ABANDONED[$i] ]]; then
             output="$output $i: $strikethrough${TODO[i]}$clear, "
         else
             output="$output $i: ${TODO[i]}, "
@@ -223,13 +229,13 @@ add_to_list() {
 
 complete_task() { # rename to complete task
     read -r -p "Tasks no: " task_no
-    DONE=(${DONE[@]} $task_no)
+    COMPLETED["$task_no"]="this"
     clear_line 1
 }
 
 cancel_task() {
     read -r -p "Tasks no: " task_no
-    ABANDONED=(${ABANDONED[@]} $task_no)
+    ABANDONED["$task_no"]="this"
     clear_line 1
 }
 
@@ -265,8 +271,8 @@ single_pomodoro_run () {
 
     # reset global values
     TODO=()
-    DONE=()
-    ABANDONED=()
+    declare -gA COMPLETED
+    declare -gA ABANDONED
 
     local end_time
     end_time=$(date +%R)
