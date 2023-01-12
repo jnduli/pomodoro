@@ -89,13 +89,15 @@ count_down () {
     # TODO: this should behave differently depending of its work or rest
     # changes in refactor
     #   removing messages
+    #
+    #   I'm using tc tl clear lines here but it doesn't work when the screen is resized
     
     local secs_to_count_down=$(($1*SECS_IN_MINUTE))
     local printed_minutes=0
-
     changed='f'
+    tput sc
     pomodoro=$(refresh_current_pomodoro_output)
-    printf "\t%b\n\t\tTime spend %s minutes\n" "$pomodoro" "$printed_minutes"
+    printf "\t%b\n\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
 
     SECONDS=0 
     if [ -n "$2" ]; then
@@ -108,9 +110,9 @@ count_down () {
             printed_minutes=$minutes
             clear_line 2
             pomodoro=$(refresh_current_pomodoro_output)
-            printf "\t%b\n\t\tTime spend %s minutes\n" "$pomodoro" "$printed_minutes"
+            tput rc;tput ed # rc = restore cursor, ed = erase to end of screen 
+            printf "\t%b\n\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
             changed='f'
-            # echo -e "\t\tTime spent $printed_minutes minutes"
         fi
         read -r -t 0.25 -N 1 input || true # no input fails with non zero status
         if [[ ${input^^} = "P" ]]; then
@@ -118,25 +120,19 @@ count_down () {
             pause_forever
             SECONDS=$pausedtime
         elif [[ ${input^^} == "A" ]]; then
-            local pausedtime=$SECONDS
+            # TODO: change inputs to have a time limit too so that it doesn't hang here
             add_to_list
             changed='t'
-            SECONDS=$pausedtime
         elif [[ ${input^^} == "D" ]]; then
-            local pausedtime=$SECONDS
             complete_task
             changed='t'
-            SECONDS=$pausedtime
         elif [[ ${input^^} == "C" ]]; then
-            local pausedtime=$SECONDS
             cancel_task
             changed='t'
-            SECONDS=$pausedtime
         elif [[ ${input^^} == "Q" ]]; then
             break
         fi
     done
-
 }
 
 
@@ -271,8 +267,8 @@ single_pomodoro_run () {
 
     # reset global values
     TODO=()
-    declare -gA COMPLETED
-    declare -gA ABANDONED
+    COMPLETED=()
+    ABANDONED=()
 
     local end_time
     end_time=$(date +%R)

@@ -8,23 +8,12 @@ set -euo pipefail
 #
 
 # Global variables
-TODO_List=()
-Done_Indices=()
-Abandonded_indices=()
-
-# Colors used in display
-# Set the color variable
-green='\033[0;32m' # green for done tasks
-strikethrough='\033[0;9m' # strike through abandoned tasks
-clear='\033[0m' # clear formatting
+# TODO_List=("this is really good", "them are really bad")
+TODO_List=("this is really good", "them are really bad", "this is a really long sentence", "trying out more things", "another attempt this isnt really long enough though")
 
 single_pomodoro_run () {
     echo "Pomodoro $1"
-    read -r -p "Plan: " tasks 
-    readarray -td', ' TODO_List <<< "$tasks" # comma separated input
-    clear_line 1
-    refresh_output
-
+    tput sc
     while (( 1 > 0 )); do
         read -r -t 0.25 -N 1 input || true 
         if [[ ${input^^} == "A" ]]; then
@@ -36,6 +25,10 @@ single_pomodoro_run () {
         elif [[ ${input^^} == "Q" ]]; then
             break
         fi
+        tput rc;tput ed # rc = restore cursor, el = erase to end of line
+        # tput ed
+        content=$(refresh_output)
+        echo -e "$content"
     done
 
     # read -r -p 'Plan: ' work
@@ -73,30 +66,7 @@ refresh_output () {
             output="$output $i: ${TODO_List[i]}, "
         fi
     done
-    echo -e "$output"
-}
-
-add_to_list() {
-    read -r -p "Additional Tasks: " tasks 
-    readarray -td', ' temp_arr <<< "$tasks" # comma separated input
-    TODO_List=(${TODO_List[@]} ${temp_arr[@]})
-    clear_line 1
-    refresh_output
-}
-
-complete_task() { # rename to complete task
-    read -r -p "Tasks no: " task_no
-    Done_Indices=(${Done_Indices[@]} $task_no)
-    echo "${Done_Indices[@]}"
-    clear_line 1
-    refresh_output
-}
-
-cancel_task() {
-    read -r -p "Tasks no: " task_no
-    Abandonded_indices=(${Abandonded_indices[@]} $task_no)
-    clear_line 1
-    refresh_output
+    echo "$output"
 }
 
 
@@ -112,10 +82,62 @@ clear_output() {
 clear_line () {
     local lines=${1:-1} # defaults to 1
     while (( lines > 0 )); do 
+        printf '\r' # go to beginning of line
         printf "\033[1A"  # move cursor one line up
+        # printf "\r"
         printf "\033[K"   # delete till end of line
         lines=$lines-1
     done
 }
 
+# Clears the entire current line regardless of terminal size.
+# See the magic by running:
+# { sleep 1; clear_this_line ; }&
+clear_this_line(){
+        printf '\r'
+        cols="$(tput cols)"
+        for i in $(seq "$cols"); do
+                printf ' '
+        done
+        printf '\r'
+}
+
+# Erases the amount of lines specified.
+# Usage: erase_lines [AMOUNT]
+# See the magic by running:
+# { sleep 1; erase_lines 2; }&
+erase_lines(){
+        # Default line count to 1.
+        test -z "$1" && lines="1" || lines="$1"
+
+        # This is what we use to move the cursor to previous lines.
+        UP='\033[1A'
+
+        # Exit if erase count is zero.
+        [ "$lines" = 0 ] && return
+
+        # Erase.
+        if [ "$lines" = 1 ]; then
+                clear_this_line
+        else
+                lines=$((lines-1))
+                clear_this_line
+                for i in $(seq "$lines"); do
+                        printf "$UP"
+                        clear_this_line
+                done
+        fi
+}
+
+
 single_pomodoro_run 1
+# tput sc # save cursor
+# printf "Something that I made up for this string that is really long and will span multiple lines to see how this pands out and hopw that it all goes graet fome me and the random things don't pand out for me"
+# sleep 1
+# tput rc;tput ed # rc = restore cursor, el = erase to end of line
+# printf "Another message for testing"
+# sleep 1
+# tput rc;tput ed
+# printf "Yet another one"
+# sleep 1
+# tput rc;tput ed
