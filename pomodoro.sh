@@ -94,10 +94,14 @@ count_down () {
     
     local secs_to_count_down=$(($1*SECS_IN_MINUTE))
     local printed_minutes=0
-    changed='f'
+    local changed='f'
     tput sc
-    pomodoro=$(refresh_current_pomodoro_output)
-    printf "\t%b\n\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
+    if [[ $CURRENT_TASK = "work" ]]; then
+        pomodoro=$(refresh_current_pomodoro_output)
+        printf "\t%b\n\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes" "$pomodoro" "$printed_minutes"
+    else 
+        printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
+    fi
 
     SECONDS=0 
     if [ -n "$2" ]; then
@@ -111,7 +115,12 @@ count_down () {
             clear_line 2
             pomodoro=$(refresh_current_pomodoro_output)
             tput rc;tput ed # rc = restore cursor, ed = erase to end of screen 
-            printf "\t%b\n\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
+            tput sc
+            if [[ $CURRENT_TASK == "work" ]]; then
+                printf "\t%b\n\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes" "$pomodoro" "$printed_minutes"
+            else 
+                printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
+            fi
             changed='f'
         fi
         read -r -t 0.25 -N 1 input || true # no input fails with non zero status
@@ -261,7 +270,7 @@ single_pomodoro_run () {
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         dunstctl set-paused true
     fi
-    echo -e "\tStarting work:"
+    echo -e "\tStarting work:\n"
     CURRENT_TASK="work"
     work_or_rest $WORK
 
