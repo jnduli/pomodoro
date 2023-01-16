@@ -115,7 +115,6 @@ count_down () {
             clear_line 2
             pomodoro=$(refresh_current_pomodoro_output)
             tput rc;tput ed # rc = restore cursor, ed = erase to end of screen 
-            tput sc
             if [[ $CURRENT_TASK == "work" ]]; then
                 printf "\t%b\n\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes" "$pomodoro" "$printed_minutes"
             else 
@@ -209,6 +208,19 @@ EOF
 ############################################
 # TODO: adding better output 
 # ###########################################
+#
+STATIC_OUTPUT=""
+DYNAMIC_OUTPUT=""
+
+refresh_screen() {
+    # I'm having a hard time figuring out how to manage the output of single pomodoros even when the screen changes
+    # so I'll maintain a global list of what needs to change and add to it as pomodoros complete
+    # I'll then use this to refresh the whole screen and call this on each action I get and work on
+    tput clear # clear the whole screen
+    printf "%b" "$STATIC_OUTPUT"
+    printf "%b" "$DYNAMIC_OUTPUT"
+}
+
 
 refresh_current_pomodoro_output () {
     local output=""
@@ -272,7 +284,12 @@ single_pomodoro_run () {
     fi
     echo -e "\tStarting work:\n"
     CURRENT_TASK="work"
-    work_or_rest $WORK
+    work_or_rest "$WORK"
+
+    # add to STATIC CONTENT before we reset values
+    # TODO: figure out if I want to add rest to this static output too
+    pomodoro_content=$(refresh_current_pomodoro_output)
+    STATIC_OUTPUT=$(printf "%b\nPomodoro %d\n%b" "$STATIC_OUTPUT" "$1" "$pomodoro_content")
 
     # reset global values
     TODO=()
@@ -374,6 +391,7 @@ main () {
     options "$@"
     rename_window_in_tmux
     echo "Starting pomodoro, work=$WORK and rest=$REST minutes"
+    STATIC_OUTPUT=$(echo "Starting pomodoro, work=$WORK and rest=$REST minutes")
     local pomodoro_count=1
     if [ -f "$LOG_DIR$FILENAME" ]; then
         mapfile -td' ' arr < <(tail -1 $LOG_DIR$FILENAME) # create array of words from last line in logs

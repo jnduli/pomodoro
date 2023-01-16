@@ -9,7 +9,7 @@ set -euo pipefail
 
 # Global variables
 # TODO_List=("this is really good", "them are really bad")
-TODO_List=("this is really good", "them are really bad", "this is a really long sentence", "trying out more things", "another attempt this isnt really long enough though")
+TODO_List=("this is really good", "them are really bad", "this is a really long sentence", "trying out more things", "another attempt this isnt really long enough though", "adding more content to have new lines in the context")
 
 single_pomodoro_run () {
     echo "Pomodoro $1"
