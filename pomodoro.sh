@@ -102,7 +102,7 @@ count_down () {
         printf "%b\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
     else 
         pomodoro_lines=0
-        printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
+        printf "\nq-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
     fi
 
     SECONDS=0 
@@ -121,7 +121,7 @@ count_down () {
                 printf "%b\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
             else 
                 pomodoro_lines=-1
-                printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
+                printf "\nq-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
             fi
             changed='f'
         fi
@@ -259,20 +259,20 @@ refresh_current_pomodoro_output () {
 }
 
 add_to_list() {
-    read -r -p "Additional Tasks: " tasks 
+    read -r -p "\nAdditional Tasks: " tasks 
     readarray -td', ' temp_arr <<< "$tasks" # comma separated input
     TODO=(${TODO[@]} ${temp_arr[@]})
     clear_line 1
 }
 
 complete_task() { # rename to complete task
-    read -r -p "Tasks no: " task_no
+    read -r -p "\nTasks no: " task_no
     COMPLETED["$task_no"]="this"
     clear_line 1
 }
 
 cancel_task() {
-    read -r -p "Tasks no: " task_no
+    read -r -p "\nTasks no: " task_no
     ABANDONED["$task_no"]="this"
     clear_line 1
 }
