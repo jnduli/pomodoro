@@ -43,8 +43,6 @@ green='\033[0;32m' # green for done tasks
 strikethrough='\033[0;9m' # strike through abandoned tasks
 clear='\033[0m' # clear formatting
 
-
-
 # Plays or uses notify-send to send notification
 # Arguments
 #   notification_type
@@ -90,16 +88,20 @@ count_down () {
     # changes in refactor
     #   removing messages
     #
-    #   I'm using tc tl clear lines here but it doesn't work when the screen is resized
     
     local secs_to_count_down=$(($1*SECS_IN_MINUTE))
     local printed_minutes=0
     local changed='f'
-    tput sc
+    local pomodoro_lines=0
     if [[ $CURRENT_TASK = "work" ]]; then
         pomodoro=$(refresh_current_pomodoro_output)
-        printf "\t%b\n\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes" "$pomodoro" "$printed_minutes"
+        pomodoro_lines=$(echo -e "$pomodoro" | wc -l)
+        # echo $pomodoro
+        # echo $pomodoro_lines
+        # exit
+        printf "%b\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
     else 
+        pomodoro_lines=0
         printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
     fi
 
@@ -112,12 +114,13 @@ count_down () {
         minutes=$((SECONDS/SECS_IN_MINUTE))
         if [[ $changed == 't' || $printed_minutes != "$minutes" ]]; then # updates screen after every minute, preventing stuttering
             printed_minutes=$minutes
-            clear_line 2
+            clear_line $(( pomodoro_lines + 2 ))
             pomodoro=$(refresh_current_pomodoro_output)
-            tput rc;tput ed # rc = restore cursor, ed = erase to end of screen 
             if [[ $CURRENT_TASK == "work" ]]; then
-                printf "\t%b\n\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes" "$pomodoro" "$printed_minutes"
+                pomodoro_lines=$(echo "$pomodoro" | wc -l)
+                printf "%b\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
             else 
+                pomodoro_lines=-1
                 printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
             fi
             changed='f'
@@ -223,18 +226,36 @@ refresh_screen() {
 
 
 refresh_current_pomodoro_output () {
-    local output=""
+    # set -x
+    local prefix_chars=8 # assume 4 spaces for tabs
+    local output=("") # assume four spaces for tabs
+    local non_color_last_line=""
 
     for (( i=0; i < ${#TODO[@]}; i ++ )); do
         if [[ -v COMPLETED[$i] ]]; then
-            output="$output $i: $green${TODO[i]}$clear, "
+            local_output="$i: $green${TODO[i]}$clear"
         elif [[ -v ABANDONED[$i] ]]; then
-            output="$output $i: $strikethrough${TODO[i]}$clear, "
+            local_output="$i: $strikethrough${TODO[i]}$clear"
         else
-            output="$output $i: ${TODO[i]}, "
+            local_output="$i: ${TODO[i]}"
+        fi
+        local non_color_output="$non_color_last_line $i: ${TODO[i]}, "
+        if [[ ${#non_color_output}+$prefix_chars+4 -gt $COLUMNS ]]; then
+            output+=("$local_output, ")
+            non_color_last_line="$i: ${TODO[i]}, "
+        else
+            local potential_output="${output[-1]} $local_output, "
+            output[-1]=$potential_output
+            non_color_last_line="$non_color_output"
         fi
     done
-    echo "$output"
+
+    pomodoro_content=""
+    for (( i=0; i<${#output[@]}; i++)) do
+        pomodoro_content="$pomodoro_content    ${output[i]}\n" # 4spaces for indent
+    done
+    echo "$pomodoro_content"
+    # set +x
 }
 
 add_to_list() {
