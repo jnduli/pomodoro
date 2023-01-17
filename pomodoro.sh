@@ -72,6 +72,7 @@ clear_line () {
     while (( lines > 0 )); do 
         printf "\033[1A"  # move cursor one line up
         printf "\033[K"   # delete till end of line
+        printf "\r" # go to the beginning of the line
         lines=$lines-1
     done
 }
@@ -95,14 +96,11 @@ count_down () {
     local pomodoro_lines=0
     if [[ $CURRENT_TASK = "work" ]]; then
         pomodoro=$(refresh_current_pomodoro_output)
-        pomodoro_lines=$(echo -e "$pomodoro" | wc -l)
-        # echo $pomodoro
-        # echo $pomodoro_lines
-        # exit
+        pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
         printf "%b\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
     else 
         pomodoro_lines=0
-        printf "\nq-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
+        printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
     fi
 
     SECONDS=0 
@@ -114,14 +112,14 @@ count_down () {
         minutes=$((SECONDS/SECS_IN_MINUTE))
         if [[ $changed == 't' || $printed_minutes != "$minutes" ]]; then # updates screen after every minute, preventing stuttering
             printed_minutes=$minutes
-            clear_line $(( pomodoro_lines + 2 ))
+            clear_line $(( pomodoro_lines + 1 ))
             pomodoro=$(refresh_current_pomodoro_output)
             if [[ $CURRENT_TASK == "work" ]]; then
-                pomodoro_lines=$(echo "$pomodoro" | wc -l)
+                pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
                 printf "%b\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
             else 
-                pomodoro_lines=-1
-                printf "\nq-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
+                pomodoro_lines=0
+                printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
             fi
             changed='f'
         fi
@@ -259,20 +257,20 @@ refresh_current_pomodoro_output () {
 }
 
 add_to_list() {
-    read -r -p "\nAdditional Tasks: " tasks 
+    read -r -p "Additional Tasks: " tasks 
     readarray -td', ' temp_arr <<< "$tasks" # comma separated input
     TODO=(${TODO[@]} ${temp_arr[@]})
     clear_line 1
 }
 
 complete_task() { # rename to complete task
-    read -r -p "\nTasks no: " task_no
+    read -r -p "Tasks no: " task_no
     COMPLETED["$task_no"]="this"
     clear_line 1
 }
 
 cancel_task() {
-    read -r -p "\nTasks no: " task_no
+    read -r -p "Tasks no: " task_no
     ABANDONED["$task_no"]="this"
     clear_line 1
 }
