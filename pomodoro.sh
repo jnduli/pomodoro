@@ -11,7 +11,7 @@ IFS=$'\t\n'
 scriptDir=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
 cd "$scriptDir" || exit
 
-readonly VERSION='0.1'
+readonly VERSION='0.2'
 readonly SOUNDFILE='alarm.oga'
 readonly CONFIG_FILE="$HOME/.config/pomodoro/config"
 
@@ -38,7 +38,6 @@ declare -A ABANDONED
 CURRENT_TASK="work" # temporary value to help determine child tasks, TODO: Drop this
 
 # Colors used in display
-# Set the color variable
 green='\033[0;32m' # green for done tasks
 strikethrough='\033[0;9m' # strike through abandoned tasks
 clear='\033[0m' # clear formatting
@@ -110,11 +109,12 @@ count_down () {
     fi
     while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
         minutes=$((SECONDS/SECS_IN_MINUTE))
-        if [[ $changed == 't' || $printed_minutes != "$minutes" ]]; then # updates screen after every minute, preventing stuttering
+        if [[ ${changed^^} == 'T' || $printed_minutes != "$minutes" ]]; then # updates screen after every minute, preventing stuttering
             printed_minutes=$minutes
+            # +1 because this is the contents of the pomodoro and the context line with time spent
             clear_line $(( pomodoro_lines + 1 ))
-            pomodoro=$(refresh_current_pomodoro_output)
             if [[ $CURRENT_TASK == "work" ]]; then
+                pomodoro=$(refresh_current_pomodoro_output)
                 pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
                 printf "%b\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
             else 
@@ -206,25 +206,7 @@ EOF
     eval "$1=$should_continue" # set first parameter to have the return type
 }
 
-############################################
-# TODO: adding better output 
-# ###########################################
-#
-STATIC_OUTPUT=""
-DYNAMIC_OUTPUT=""
-
-refresh_screen() {
-    # I'm having a hard time figuring out how to manage the output of single pomodoros even when the screen changes
-    # so I'll maintain a global list of what needs to change and add to it as pomodoros complete
-    # I'll then use this to refresh the whole screen and call this on each action I get and work on
-    tput clear # clear the whole screen
-    printf "%b" "$STATIC_OUTPUT"
-    printf "%b" "$DYNAMIC_OUTPUT"
-}
-
-
 refresh_current_pomodoro_output () {
-    # set -x
     local prefix_chars=8 # assume 4 spaces for tabs
     local output=("") # assume four spaces for tabs
     local non_color_last_line=""
@@ -242,8 +224,7 @@ refresh_current_pomodoro_output () {
             output+=("$local_output, ")
             non_color_last_line="$i: ${TODO[i]}, "
         else
-            local potential_output="${output[-1]} $local_output, "
-            output[-1]=$potential_output
+            output[-1]="${output[-1]} $local_output, "
             non_color_last_line="$non_color_output"
         fi
     done
@@ -253,7 +234,6 @@ refresh_current_pomodoro_output () {
         pomodoro_content="$pomodoro_content    ${output[i]}\n" # 4spaces for indent
     done
     echo "$pomodoro_content"
-    # set +x
 }
 
 add_to_list() {
@@ -265,22 +245,15 @@ add_to_list() {
 
 complete_task() { # rename to complete task
     read -r -p "Tasks no: " task_no
-    COMPLETED["$task_no"]="this"
+    COMPLETED["$task_no"]="DONE"
     clear_line 1
 }
 
 cancel_task() {
     read -r -p "Tasks no: " task_no
-    ABANDONED["$task_no"]="this"
+    ABANDONED["$task_no"]="ABANDONED"
     clear_line 1
 }
-
-
-
-
-######################################################
-# TODO: Better output 
-######################################################
 
 # Runs one complete pomodoro i.e. with work and rest
 # Globals:
@@ -293,7 +266,7 @@ single_pomodoro_run () {
     read -r -p 'Plan: ' work
     clear_line
     echo -e "\tPlan: $work"
-    # TODO: add relevant comment from this shttps://unix.stackexchange.com/a/519917
+    # passing in $work using <<<< adds a new line to the input, so we use substitution, see: https://unix.stackexchange.com/a/519917
     readarray -td', ' TODO < <(printf "%s" "$work") # comma separated input
     local start_time
     start_time=$(date +%R)
@@ -301,14 +274,9 @@ single_pomodoro_run () {
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         dunstctl set-paused true
     fi
-    echo -e "\tStarting work:\n"
+    echo -e "\tStarting work:"
     CURRENT_TASK="work"
     work_or_rest "$WORK"
-
-    # add to STATIC CONTENT before we reset values
-    # TODO: figure out if I want to add rest to this static output too
-    pomodoro_content=$(refresh_current_pomodoro_output)
-    STATIC_OUTPUT=$(printf "%b\nPomodoro %d\n%b" "$STATIC_OUTPUT" "$1" "$pomodoro_content")
 
     # reset global values
     TODO=()
@@ -410,7 +378,6 @@ main () {
     options "$@"
     rename_window_in_tmux
     echo "Starting pomodoro, work=$WORK and rest=$REST minutes"
-    STATIC_OUTPUT=$(echo "Starting pomodoro, work=$WORK and rest=$REST minutes")
     local pomodoro_count=1
     if [ -f "$LOG_DIR$FILENAME" ]; then
         mapfile -td' ' arr < <(tail -1 $LOG_DIR$FILENAME) # create array of words from last line in logs

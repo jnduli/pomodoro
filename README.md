@@ -31,3 +31,7 @@ pomodoro.sh -h
 ## Reading the code
 The script starts running from the `main` function, so you can start here
 as you try to understand it.
+
+## Debugging bash
+To debug a function/section add: `set -x` before the place to debug and a `set
++x` at the end.
