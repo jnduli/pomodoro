@@ -276,7 +276,8 @@ single_pomodoro_run () {
     fi
     echo -e "\tStarting work:"
     CURRENT_TASK="work"
-    work_or_rest "$WORK"
+    # TODO: confirm if removing quotes from $WORK fixes the counter problem
+    work_or_rest $WORK
 
     # reset global values
     TODO=()
