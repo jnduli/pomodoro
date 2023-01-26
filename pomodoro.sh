@@ -88,6 +88,7 @@ count_down () {
     # changes in refactor
     #   removing messages
     #
+    echo -e "inputs to count_down fn $*"
     
     local secs_to_count_down=$(($1*SECS_IN_MINUTE))
     local printed_minutes=0
@@ -244,14 +245,14 @@ add_to_list() {
 }
 
 complete_task() { # rename to complete task
-    read -r -p "Tasks no: " task_no
-    COMPLETED["$task_no"]="DONE"
+    read -r -p "Tasks no: " task_index
+    COMPLETED["$task_index"]="DONE"
     clear_line 1
 }
 
 cancel_task() {
-    read -r -p "Tasks no: " task_no
-    ABANDONED["$task_no"]="ABANDONED"
+    read -r -p "Tasks no: " task_index
+    ABANDONED["$task_index"]="ABANDONED"
     clear_line 1
 }
 
