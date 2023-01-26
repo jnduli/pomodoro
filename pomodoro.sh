@@ -88,8 +88,6 @@ count_down () {
     # changes in refactor
     #   removing messages
     #
-    echo -e "inputs to count_down fn $*"
-    
     local secs_to_count_down=$(($1*SECS_IN_MINUTE))
     local printed_minutes=0
     local changed='f'
