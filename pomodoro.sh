@@ -11,7 +11,7 @@ IFS=$'\t\n'
 scriptDir=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
 cd "$scriptDir" || exit
 
-readonly VERSION='0.2'
+readonly VERSION='0.3'
 readonly SOUNDFILE='alarm.oga'
 readonly CONFIG_FILE="$HOME/.config/pomodoro/config"
 

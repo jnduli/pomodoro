@@ -1,6 +1,6 @@
 # Pomodoro
 
-This is a bashscript project that provides a simple to use pomodoro.
+A bashscript project that provides a simple to use pomodoro.
 
 [![asciicast](https://asciinema.org/a/291141.svg)](https://asciinema.org/a/291141)
 
@@ -25,8 +25,6 @@ pomodoro.sh -h
   `pomodoro.sh -r 5 -p 5 -d`
 - Retrospection mode, where the script outputs all the work logged
   during the day: `pomodoro.sh -l`
-- Support for continuing to work when you are in the zone (Just press c
-  when you're supposed to be on break)
 
 ## Reading the code
 The script starts running from the `main` function, so you can start here
