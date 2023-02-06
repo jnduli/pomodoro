@@ -11,7 +11,7 @@ IFS=$'\t\n'
 scriptDir=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
 cd "$scriptDir" || exit
 
-readonly VERSION='0.1'
+readonly VERSION='0.2'
 readonly SOUNDFILE='alarm.oga'
 readonly CONFIG_FILE="$HOME/.config/pomodoro/config"
 
@@ -31,6 +31,16 @@ if [ -f "$CONFIG_FILE" ]; then
     source "${CONFIG_FILE}"
 fi
 
+# Global variables
+TODO=()
+declare -A COMPLETED
+declare -A ABANDONED
+CURRENT_TASK="work" # temporary value to help determine child tasks, TODO: Drop this
+
+# Colors used in display
+green='\033[0;32m' # green for done tasks
+strikethrough='\033[0;9m' # strike through abandoned tasks
+clear='\033[0m' # clear formatting
 
 # Plays or uses notify-send to send notification
 # Arguments
@@ -61,6 +71,7 @@ clear_line () {
     while (( lines > 0 )); do 
         printf "\033[1A"  # move cursor one line up
         printf "\033[K"   # delete till end of line
+        printf "\r" # go to the beginning of the line
         lines=$lines-1
     done
 }
@@ -73,12 +84,23 @@ clear_line () {
 #   time in minutes ($1)
 #   break_avoided (Optional $2): the number of times break has been avoided
 count_down () {
+    # TODO: this should behave differently depending of its work or rest
     # changes in refactor
     #   removing messages
+    #
     local secs_to_count_down=$(($1*SECS_IN_MINUTE))
     local printed_minutes=0
+    local changed='f'
+    local pomodoro_lines=0
+    if [[ $CURRENT_TASK = "work" ]]; then
+        pomodoro=$(refresh_current_pomodoro_output)
+        pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
+        printf "%b\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
+    else 
+        pomodoro_lines=0
+        printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
+    fi
 
-    echo -e "\t\tTime spent $printed_minutes minutes"
     SECONDS=0 
     if [ -n "$2" ]; then
         SECONDS=$(($1*SECS_IN_MINUTE*$2))
@@ -86,26 +108,37 @@ count_down () {
     fi
     while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
         minutes=$((SECONDS/SECS_IN_MINUTE))
-        if [[ $printed_minutes != "$minutes" ]]; then # updates screen after every minute, preventing stuttering
+        if [[ ${changed^^} == 'T' || $printed_minutes != "$minutes" ]]; then # updates screen after every minute, preventing stuttering
             printed_minutes=$minutes
-            clear_line
-            echo -e "\t\tTime spent $printed_minutes minutes"
+            # +1 because this is the contents of the pomodoro and the context line with time spent
+            clear_line $(( pomodoro_lines + 1 ))
+            if [[ $CURRENT_TASK == "work" ]]; then
+                pomodoro=$(refresh_current_pomodoro_output)
+                pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
+                printf "%b\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
+            else 
+                pomodoro_lines=0
+                printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
+            fi
+            changed='f'
         fi
         read -r -t 0.25 -N 1 input || true # no input fails with non zero status
         if [[ ${input^^} = "P" ]]; then
             local pausedtime=$SECONDS
             pause_forever
             SECONDS=$pausedtime
-        elif [[ ${input^^} = "Q" ]]; then
+        elif [[ ${input^^} == "A" ]]; then
+            # TODO: change inputs to have a time limit too so that it doesn't hang here
+            add_to_list
+            changed='t'
+        elif [[ ${input^^} == "D" ]]; then
+            complete_task
+            changed='t'
+        elif [[ ${input^^} == "C" ]]; then
+            cancel_task
+            changed='t'
+        elif [[ ${input^^} == "Q" ]]; then
             break
-        elif [[ ${input^^} = "A" ]]; then
-            # TODO: count down is becoming a little too godly for my liking, figure out a way to clean it up.
-            local pausedtime=$SECONDS
-            read -r -p 'Additional tasks: ' work
-            clear_line
-            echo -e '\tAdditional tasks: ' "$work"
-            SECONDS=$pausedtime
-            echo -e "\t\tTime spent ..."
         fi
     done
 }
@@ -172,6 +205,55 @@ EOF
     eval "$1=$should_continue" # set first parameter to have the return type
 }
 
+refresh_current_pomodoro_output () {
+    local prefix_chars=8 # assume 4 spaces for tabs
+    local output=("") # assume four spaces for tabs
+    local non_color_last_line=""
+
+    for (( i=0; i < ${#TODO[@]}; i ++ )); do
+        if [[ -v COMPLETED[$i] ]]; then
+            local_output="$i: $green${TODO[i]}$clear"
+        elif [[ -v ABANDONED[$i] ]]; then
+            local_output="$i: $strikethrough${TODO[i]}$clear"
+        else
+            local_output="$i: ${TODO[i]}"
+        fi
+        local non_color_output="$non_color_last_line $i: ${TODO[i]}, "
+        if [[ ${#non_color_output}+$prefix_chars+4 -gt $COLUMNS ]]; then
+            output+=("$local_output, ")
+            non_color_last_line="$i: ${TODO[i]}, "
+        else
+            output[-1]="${output[-1]} $local_output, "
+            non_color_last_line="$non_color_output"
+        fi
+    done
+
+    pomodoro_content=""
+    for (( i=0; i<${#output[@]}; i++)) do
+        pomodoro_content="$pomodoro_content    ${output[i]}\n" # 4spaces for indent
+    done
+    echo "$pomodoro_content"
+}
+
+add_to_list() {
+    read -r -p "Additional Tasks: " tasks 
+    readarray -td', ' temp_arr <<< "$tasks" # comma separated input
+    TODO=(${TODO[@]} ${temp_arr[@]})
+    clear_line 1
+}
+
+complete_task() { # rename to complete task
+    read -r -p "Tasks no: " task_index
+    COMPLETED["$task_index"]="DONE"
+    clear_line 1
+}
+
+cancel_task() {
+    read -r -p "Tasks no: " task_index
+    ABANDONED["$task_index"]="ABANDONED"
+    clear_line 1
+}
+
 # Runs one complete pomodoro i.e. with work and rest
 # Globals:
 #   WORK
@@ -182,7 +264,9 @@ single_pomodoro_run () {
     echo "Pomodoro $1"
     read -r -p 'Plan: ' work
     clear_line
-    echo -e '\tPlan: ' "$work"
+    echo -e "\tPlan: $work"
+    # passing in $work using <<<< adds a new line to the input, so we use substitution, see: https://unix.stackexchange.com/a/519917
+    readarray -td', ' TODO < <(printf "%s" "$work") # comma separated input
     local start_time
     start_time=$(date +%R)
 
@@ -190,7 +274,14 @@ single_pomodoro_run () {
         dunstctl set-paused true
     fi
     echo -e "\tStarting work:"
+    CURRENT_TASK="work"
+    # TODO: confirm if removing quotes from $WORK fixes the counter problem
     work_or_rest $WORK
+
+    # reset global values
+    TODO=()
+    COMPLETED=()
+    ABANDONED=()
 
     local end_time
     end_time=$(date +%R)
@@ -202,6 +293,7 @@ single_pomodoro_run () {
         dunstctl set-paused false
     fi
     echo -e "\tStarting rest:"
+    CURRENT_TASK="rest"
     work_or_rest $REST
 }
 
