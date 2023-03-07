@@ -1,17 +1,15 @@
-Debugging the pomodoro bash script is a pain and takes a while to figure out. I
-need to improve a lot on this front by:
+It's a pain to debug the pomodoro script. The following improvements will help:
 
-- adding test cases
-- having a debug mode that outputs the content
-- research how to debug bash scripts
-- better design of the whole script
-- code introspection
+- basic tests for functions
+- improving test coverage
+- support debug mode (TODO: what does this look like?)
+- support code introspection (TODO: what does this look like?)
+
+Testing Suite:
+https://github.com/kward/shunit2/tree/master/examples
+
 
 # Testing
-- Figure out one code section to write a test for
-- Investigate bash script testing strategy
-- Implement test for this one function
-- Create a ci action that runs bash tests
-- Determine the coverage
-- Determine other code sections worth testing
-
+- Write test for one function
+- Document process
+- Break down more functions into tests
