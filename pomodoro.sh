@@ -107,7 +107,7 @@ count_down () {
         secs_to_count_down=$((($2+1)*$1*SECS_IN_MINUTE))
     fi
     while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
-        minutes=$((SECONDS/SECS_IN_MINUTE))
+        minutes=$(( SECONDS/SECS_IN_MINUTE ))
         if [[ ${changed^^} == 'T' || $printed_minutes != "$minutes" ]]; then # updates screen after every minute, preventing stuttering
             printed_minutes=$minutes
             # +1 because this is the contents of the pomodoro and the context line with time spent
@@ -237,20 +237,26 @@ refresh_current_pomodoro_output () {
 
 add_to_list() {
     read -r -p "Additional Tasks: " tasks 
-    readarray -td', ' temp_arr <<< "$tasks" # comma separated input
-    TODO=(${TODO[@]} ${temp_arr[@]})
+    if [[ -n $tasks ]]; then
+        readarray -td', ' temp_arr <<< "$tasks" # comma separated input
+        TODO=(${TODO[@]} ${temp_arr[@]})
+    fi
     clear_line 1
 }
 
 complete_task() { # rename to complete task
     read -r -p "Tasks no: " task_index
-    COMPLETED["$task_index"]="DONE"
+    if [[ -n $task_index ]]; then
+        COMPLETED["$task_index"]="DONE"
+    fi
     clear_line 1
 }
 
 cancel_task() {
     read -r -p "Tasks no: " task_index
-    ABANDONED["$task_index"]="ABANDONED"
+    if [[ -n $task_index ]]; then
+        ABANDONED["$task_index"]="ABANDONED"
+    fi
     clear_line 1
 }
 
