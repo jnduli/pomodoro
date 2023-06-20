@@ -218,6 +218,7 @@ refresh_current_pomodoro_output () {
     local prefix_chars=8 # assume 4 spaces for tabs
     local output=("") # assume four spaces for tabs
     local non_color_last_line=""
+    local columns=$(tput cols)
 
     for (( i=0; i < ${#TODO[@]}; i ++ )); do
         if [[ -v COMPLETED[$i] ]]; then
@@ -228,7 +229,7 @@ refresh_current_pomodoro_output () {
             local_output="$i: ${TODO[i]}"
         fi
         local non_color_output="$non_color_last_line $i: ${TODO[i]}, "
-        if [[ ${#non_color_output}+$prefix_chars+4 -gt $COLUMNS ]]; then
+        if [[ ${#non_color_output}+$prefix_chars+4 -gt $columns ]]; then
             output+=("$local_output, ")
             non_color_last_line="$i: ${TODO[i]}, "
         else
