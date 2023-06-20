@@ -42,6 +42,15 @@ green='\033[0;32m' # green for done tasks
 strikethrough='\033[0;9m' # strike through abandoned tasks
 clear='\033[0m' # clear formatting
 
+PREREQUISITES=("paplay" "notify-send" "dunstctl")
+
+for command in "${PREREQUISITES[@]}"; do
+    if ! command -v "$command" &> /dev/null; then
+        printf "Command: %s is not found, please install it\n" "$command"
+        exit 1
+    fi
+done
+
 # Plays or uses notify-send to send notification
 # Arguments
 #   notification_type
