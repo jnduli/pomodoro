@@ -1,1 +1,1 @@
-{"author":{"id":"9254dd543f72c8cedfcf0292ffa048ddbfa83781d9d615cbc0251c16fefd012b"},"ops":[{"type":1,"timestamp":1685002770,"nonce":"jnvHUDH03uS5WHdHkXI5/kC2T04=","title":"feat: catch pomodoro prerequisites early on before the command runs","message":"Fail when the prerequisites haven't been found and provide the command that is needed.\ne.g.\n- dunsctl\n- paplay","files":null}]}
+{"author":{"id":"9254dd543f72c8cedfcf0292ffa048ddbfa83781d9d615cbc0251c16fefd012b"},"ops":[{"type":4,"timestamp":1687240480,"nonce":"TjESQcQ9Z+WS6jgdOpNTxNE0n/0=","status":2}]}
