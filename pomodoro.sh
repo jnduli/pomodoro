@@ -339,22 +339,29 @@ log () {
 
 show_help () {
     cat <<EOF
-Copyright (C) 2019: John Nduli K.                                                                                                      
+Copyright (C) 2023: John Nduli K.                                                                                                      
 pomodoro.sh version $VERSION:
- This runs pomodoro from your terminal
- During a count down, you can press p to pause/unpause the program
- You can also press q to quit the program
+ Pomodoro (https://en.wikipedia.org/wiki/Pomodoro_Technique) breaks up my day 
+ into work and break intervals.
 
- Customization can be done by setting up these variables in a ~/.config/pomodoro/config file:
- WORK, REST, LOG_DIR, SHOULD_LOG, NOTIFICATION_TYPE, DISABLE_NOTIFICATIONS_WHILE_WORKING
+ This provides a terminal interface for doing pomodoro.
+
+ Examle usage:
+ pomodoro -r 5 -w 25
+
+ Flags:
 
  -h: Show help file
- -w <arg>: Set time for actual work
- -p <arg>: Set time for actual work (Same as -w)
- -r <arg>: Set time for rest
+ -w <arg>: Set time in minutes for actual work
+ -p <arg>: Set time in minutes for actual work (Same as -w)
+ -r <arg>: Set time in minutes for rest
+ # The options below will be deprecated
  -l: Daily retrospection (Show work done during the day)
  -q: quiet (notify does not play sound)
  -d: debug mode (The time counter uses seconds instead of minutes)
+
+ Customization can be done by setting up these variables in a ~/.config/pomodoro/config file:
+ WORK, REST, LOG_DIR, SHOULD_LOG, NOTIFICATION_TYPE, DISABLE_NOTIFICATIONS_WHILE_WORKING
 EOF
 }
 
