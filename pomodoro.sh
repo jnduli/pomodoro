@@ -42,7 +42,13 @@ green='\033[0;32m' # green for done tasks
 strikethrough='\033[0;9m' # strike through abandoned tasks
 clear='\033[0m' # clear formatting
 
-PREREQUISITES=("paplay" "notify-send" "dunstctl")
+PLAY="paplay"
+
+if ! command -v "$PLAY" &> /dev/null; then
+    PLAY="aplay"
+fi
+
+PREREQUISITES=("$PLAY" "notify-send" "dunstctl")
 
 for command in "${PREREQUISITES[@]}"; do
     if ! command -v "$command" &> /dev/null; then
@@ -365,28 +371,51 @@ EOF
 #   LOG_DIF
 #   SHOULD_LOG
 options () {
-    while getopts "w:p:r:dlhq" OPTION; do
-        case $OPTION in
-            w) WORK=$OPTARG ;;
-            p) WORK=$OPTARG ;;
-            r) REST=$OPTARG ;;
-            d) # debug mode options
-                SECS_IN_MINUTE=1
-                LOG_DIR=".logs/"
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -w|--work)
+                WORK=$2
+                shift
+                shift
                 ;;
-            l) cat "$LOG_DIR$FILENAME" # view daily logs
-               exit 1
-               ;;
-            h) show_help
-               exit 1
-               ;;
-            q) NOTIFICATION_TYPE="dunst" ;;
-            \?)
-                echo "Invalid option: -$OPTARG" >&2
+            -r|--rest)
+                REST=$2
+                shift
+                shift
+                ;;
+            -h|--help)
+                show_help
+                exit 1
+                ;;
+            *)
+                echo "Invalid option: $1" >&2
+                show_help
                 exit 1
                 ;;
         esac
     done
+    # while getopts "w:p:r:dlhq" OPTION; do
+    #     case $OPTION in
+    #         w) WORK=$OPTARG ;;
+    #         p) WORK=$OPTARG ;;
+    #         r) REST=$OPTARG ;;
+    #         d) # debug mode options
+    #             SECS_IN_MINUTE=1
+    #             LOG_DIR=".logs/"
+    #             ;;
+    #         l) cat "$LOG_DIR$FILENAME" # view daily logs
+    #            exit 1
+    #            ;;
+    #         h) show_help
+    #            exit 1
+    #            ;;
+    #         q) NOTIFICATION_TYPE="dunst" ;;
+    #         \?)
+    #             echo "Invalid option: -$OPTARG" >&2
+    #             exit 1
+    #             ;;
+    #     esac
+    # done
 }
 
 main () {
