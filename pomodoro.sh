@@ -353,13 +353,11 @@ pomodoro.sh version $VERSION:
  Customization can be done by setting up these variables in a ~/.config/pomodoro/config file:
  WORK, REST, LOG_DIR, SHOULD_LOG, NOTIFICATION_TYPE, DISABLE_NOTIFICATIONS_WHILE_WORKING
 
- -h: Show help file
- -w <arg>: Set time for actual work
- -p <arg>: Set time for actual work (Same as -w)
- -r <arg>: Set time for rest
- -l: Daily retrospection (Show work done during the day)
- -q: quiet (notify does not play sound)
- -d: debug mode (The time counter uses seconds instead of minutes)
+ -h, --help: Show help file
+ -w, --work <arg>: Set time for work in minutes
+ -r, --rest <arg>: Set time for rest in minutes
+ --no-sound: don't play the sound to notify
+ --debug-mode: debug mode (The time counter uses seconds instead of minutes)
 EOF
 }
 
@@ -383,6 +381,15 @@ options () {
                 shift
                 shift
                 ;;
+            --no-sound)
+                NOTIFICATION_TYPE="dunst"
+                shift
+                ;;
+            --debug-mode)
+                SECS_IN_MINUTE=1
+                LOG_DIR=".logs/"
+                shift
+                ;;
             -h|--help)
                 show_help
                 exit 1
@@ -394,28 +401,6 @@ options () {
                 ;;
         esac
     done
-    # while getopts "w:p:r:dlhq" OPTION; do
-    #     case $OPTION in
-    #         w) WORK=$OPTARG ;;
-    #         p) WORK=$OPTARG ;;
-    #         r) REST=$OPTARG ;;
-    #         d) # debug mode options
-    #             SECS_IN_MINUTE=1
-    #             LOG_DIR=".logs/"
-    #             ;;
-    #         l) cat "$LOG_DIR$FILENAME" # view daily logs
-    #            exit 1
-    #            ;;
-    #         h) show_help
-    #            exit 1
-    #            ;;
-    #         q) NOTIFICATION_TYPE="dunst" ;;
-    #         \?)
-    #             echo "Invalid option: -$OPTARG" >&2
-    #             exit 1
-    #             ;;
-    #     esac
-    # done
 }
 
 main () {
