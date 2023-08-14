@@ -224,6 +224,7 @@ refresh_current_pomodoro_output () {
     local prefix_chars=8 # assume 4 spaces for tabs
     local output=("") # assume four spaces for tabs
     local non_color_last_line=""
+    local columns=$(tput cols)
 
     for (( i=0; i < ${#TODO[@]}; i ++ )); do
         if [[ -v COMPLETED[$i] ]]; then
@@ -234,7 +235,7 @@ refresh_current_pomodoro_output () {
             local_output="$i: ${TODO[i]}"
         fi
         local non_color_output="$non_color_last_line $i: ${TODO[i]}, "
-        if [[ ${#non_color_output}+$prefix_chars+4 -gt $COLUMNS ]]; then
+        if [[ ${#non_color_output}+$prefix_chars+4 -gt $columns ]]; then
             output+=("$local_output, ")
             non_color_last_line="$i: ${TODO[i]}, "
         else
@@ -344,14 +345,17 @@ log () {
 
 show_help () {
     cat <<EOF
-Copyright (C) 2019: John Nduli K.                                                                                                      
+Copyright (C) 2023: John Nduli K.                                                                                                      
 pomodoro.sh version $VERSION:
- This runs pomodoro from your terminal
- During a count down, you can press p to pause/unpause the program
- You can also press q to quit the program
+ Pomodoro (https://en.wikipedia.org/wiki/Pomodoro_Technique) breaks up my day 
+ into work and break intervals.
 
- Customization can be done by setting up these variables in a ~/.config/pomodoro/config file:
- WORK, REST, LOG_DIR, SHOULD_LOG, NOTIFICATION_TYPE, DISABLE_NOTIFICATIONS_WHILE_WORKING
+ This provides a terminal interface for doing pomodoro.
+
+ Examle usage:
+ pomodoro -r 5 -w 25
+
+ Flags:
 
  -h, --help: Show help file
  -w, --work <arg>: Set time for work in minutes
