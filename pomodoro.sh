@@ -42,7 +42,13 @@ green='\033[0;32m' # green for done tasks
 strikethrough='\033[0;9m' # strike through abandoned tasks
 clear='\033[0m' # clear formatting
 
-PREREQUISITES=("paplay" "notify-send" "dunstctl")
+PLAY="paplay"
+
+if ! command -v "$PLAY" &> /dev/null; then
+    PLAY="aplay"
+fi
+
+PREREQUISITES=("$PLAY" "notify-send" "dunstctl")
 
 for command in "${PREREQUISITES[@]}"; do
     if ! command -v "$command" &> /dev/null; then
@@ -351,17 +357,11 @@ pomodoro.sh version $VERSION:
 
  Flags:
 
- -h: Show help file
- -w <arg>: Set time in minutes for actual work
- -p <arg>: Set time in minutes for actual work (Same as -w)
- -r <arg>: Set time in minutes for rest
- # The options below will be deprecated
- -l: Daily retrospection (Show work done during the day)
- -q: quiet (notify does not play sound)
- -d: debug mode (The time counter uses seconds instead of minutes)
-
- Customization can be done by setting up these variables in a ~/.config/pomodoro/config file:
- WORK, REST, LOG_DIR, SHOULD_LOG, NOTIFICATION_TYPE, DISABLE_NOTIFICATIONS_WHILE_WORKING
+ -h, --help: Show help file
+ -w, --work <arg>: Set time for work in minutes
+ -r, --rest <arg>: Set time for rest in minutes
+ --no-sound: don't play the sound to notify
+ --debug-mode: debug mode (The time counter uses seconds instead of minutes)
 EOF
 }
 
@@ -373,24 +373,34 @@ EOF
 #   LOG_DIF
 #   SHOULD_LOG
 options () {
-    while getopts "w:p:r:dlhq" OPTION; do
-        case $OPTION in
-            w) WORK=$OPTARG ;;
-            p) WORK=$OPTARG ;;
-            r) REST=$OPTARG ;;
-            d) # debug mode options
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -w|--work)
+                WORK=$2
+                shift
+                shift
+                ;;
+            -r|--rest)
+                REST=$2
+                shift
+                shift
+                ;;
+            --no-sound)
+                NOTIFICATION_TYPE="dunst"
+                shift
+                ;;
+            --debug-mode)
                 SECS_IN_MINUTE=1
                 LOG_DIR=".logs/"
+                shift
                 ;;
-            l) cat "$LOG_DIR$FILENAME" # view daily logs
-               exit 1
-               ;;
-            h) show_help
-               exit 1
-               ;;
-            q) NOTIFICATION_TYPE="dunst" ;;
-            \?)
-                echo "Invalid option: -$OPTARG" >&2
+            -h|--help)
+                show_help
+                exit 1
+                ;;
+            *)
+                echo "Invalid option: $1" >&2
+                show_help
                 exit 1
                 ;;
         esac
