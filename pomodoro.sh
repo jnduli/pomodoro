@@ -130,7 +130,7 @@ count_down () {
             if [[ $CURRENT_TASK == "work" ]]; then
                 pomodoro=$(refresh_current_pomodoro_output)
                 pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
-                printf "%b\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
+                printf "%b\t\ta-add task, d-complete/undo task, c-cancel/uncancel task. Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
             else 
                 pomodoro_lines=0
                 printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
@@ -263,7 +263,7 @@ add_to_list() {
 complete_task() { # rename to complete task
     read -r -p "Tasks no: " task_index
     if [[ -n $task_index ]]; then
-        COMPLETED["$task_index"]="DONE"
+        [[ ${COMPLETED["$task_index"]+Y} ]] && unset 'COMPLETED["$task_index"]' || COMPLETED["$task_index"]="DONE"
     fi
     clear_line 1
 }
@@ -271,7 +271,7 @@ complete_task() { # rename to complete task
 cancel_task() {
     read -r -p "Tasks no: " task_index
     if [[ -n $task_index ]]; then
-        ABANDONED["$task_index"]="ABANDONED"
+        [[ ${ABANDONED["$task_index"]+Y} ]] && unset 'ABANDONED["$task_index"]' || ABANDONED["$task_index"]="ABANDONED"
     fi
     clear_line 1
 }
