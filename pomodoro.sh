@@ -130,7 +130,7 @@ count_down () {
             if [[ $CURRENT_TASK == "work" ]]; then
                 pomodoro=$(refresh_current_pomodoro_output)
                 pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
-                printf "%b\t\ta-add task, d-complete/undo task, c-cancel/uncancel task. Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
+                printf "%b\t\ta-add task, d-do/undo task, c-cancel/uncancel task. Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
             else 
                 pomodoro_lines=0
                 printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
