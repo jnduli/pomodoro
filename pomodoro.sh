@@ -110,7 +110,7 @@ count_down () {
     if [[ $CURRENT_TASK = "work" ]]; then
         pomodoro=$(refresh_current_pomodoro_output)
         pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
-        printf "%b\t\ta-add task, d-complete task, c-cancel task Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
+        printf "%b\t\ta-add task, d-do/undo task, c-cancel/uncancel task. Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
     else 
         pomodoro_lines=0
         printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
@@ -283,6 +283,9 @@ cancel_task() {
 # Arguments:
 #   n : The current pomodoro number
 single_pomodoro_run () {
+    if [[ $1 == 1 ]]; then
+        echo "Plan is a list separated by a comma and space e.g. tasks1, task2, task 3"
+    fi
     echo "Pomodoro $1"
     read -r -p 'Plan: ' work
     clear_line
@@ -347,21 +350,33 @@ show_help () {
     cat <<EOF
 Copyright (C) 2023: John Nduli K.                                                                                                      
 pomodoro.sh version $VERSION:
- Pomodoro (https://en.wikipedia.org/wiki/Pomodoro_Technique) breaks up my day 
- into work and break intervals.
 
- This provides a terminal interface for doing pomodoro.
+Pomodoro (https://en.wikipedia.org/wiki/Pomodoro_Technique) allows regular
+work and break cycles during your day.
 
- Examle usage:
- pomodoro -r 5 -w 25
+This script provides a terminal interface for doing pomodoro.
 
- Flags:
+Example usage:
+pomodoro --rest 5 --work 25
 
- -h, --help: Show help file
- -w, --work <arg>: Set time for work in minutes
- -r, --rest <arg>: Set time for rest in minutes
- --no-sound: don't play the sound to notify
- --debug-mode: debug mode (The time counter uses seconds instead of minutes)
+Flags:
+
+-h, --help: Show help file
+-w, --work <arg>: Set time for work in minutes
+-r, --rest <arg>: Set time for rest in minutes
+--no-sound: don't play the sound to notify
+--debug-mode: debug mode (The time counter uses seconds instead of minutes)
+
+Advanced configuration:
+You can provide advanced configuration by having a file in ~/.config/pomodoro/config.
+Here's an example with comments:
+
+WORK=25 # time to work in minutes
+REST=5 # time to rest in minutes
+LOG_DIR="$HOME/.pomodoro/" # deprecated logs folder
+SHOULD_LOG=1 # deprecated, whether to log what I've done, can be 0 or 1
+NOTIFICATION_TYPE="sound" # can also be dunst
+DISABLE_NOTIFICATIONS_WHILE_WORKING=1 # can be 0 or 1
 EOF
 }
 
