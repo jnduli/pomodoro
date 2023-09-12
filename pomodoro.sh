@@ -25,7 +25,7 @@ SHOULD_LOG=1 # can be 0 or 1
 NOTIFICATION_TYPE="sound" # can also be dunst
 DISABLE_NOTIFICATIONS_WHILE_WORKING=1 # can be 0 or 1
 
-FORCE_QUIT_WORK_REST="False"
+FORCE_QUIT_WORK_REST="false"
 
 # Loading values from configuration file stored in ~/.config/pomodoro/config.sh
 if [ -f "$CONFIG_FILE" ]; then
@@ -223,8 +223,8 @@ EOF
                 break
             fi
         done
-        clear_line 3
     fi
+    clear_line 3
     eval "$1=$should_continue" # set first parameter to have the return type
 }
 
