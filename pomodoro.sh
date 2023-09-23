@@ -25,6 +25,8 @@ SHOULD_LOG=1 # can be 0 or 1
 NOTIFICATION_TYPE="sound" # can also be dunst
 DISABLE_NOTIFICATIONS_WHILE_WORKING=1 # can be 0 or 1
 
+FORCE_QUIT_WORK_REST="false"
+
 # Loading values from configuration file stored in ~/.config/pomodoro/config.sh
 if [ -f "$CONFIG_FILE" ]; then
     # shellcheck source=/dev/null
@@ -107,6 +109,7 @@ count_down () {
     local printed_minutes=0
     local changed='f'
     local pomodoro_lines=0
+    FORCE_QUIT_WORK_REST="false"
     if [[ $CURRENT_TASK = "work" ]]; then
         pomodoro=$(refresh_current_pomodoro_output)
         pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
@@ -153,6 +156,7 @@ count_down () {
             cancel_task
             changed='t'
         elif [[ ${input^^} == "Q" ]]; then
+            FORCE_QUIT_WORK_REST="true"
             break
         fi
     done
@@ -200,22 +204,26 @@ EOF
     echo ""
     SECONDS=0
     local should_continue
-    while true; do
-        notify $NOTIFICATION_TYPE
-        read -r -t 1.0 -N 1 input || true
-        input=${input:-R}
-        duration=$SECONDS
-        clear_line
-        echo "Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
-        if [[ ${input^^} = "Q" ]]; then
-            should_continue=1
-            break
-        fi
-        if [[ ${input^^} = "C" ]]; then
-            should_continue=0
-            break
-        fi
-    done
+    should_continue=1
+
+    if [[ $FORCE_QUIT_WORK_REST != "true" ]]; then
+        while true; do
+            notify $NOTIFICATION_TYPE
+            read -r -t 1.0 -N 1 input || true
+            input=${input:-R}
+            duration=$SECONDS
+            clear_line
+            echo "Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
+            if [[ ${input^^} = "Q" ]]; then
+                should_continue=1
+                break
+            fi
+            if [[ ${input^^} = "C" ]]; then
+                should_continue=0
+                break
+            fi
+        done
+    fi
     clear_line 3
     eval "$1=$should_continue" # set first parameter to have the return type
 }
