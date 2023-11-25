@@ -113,7 +113,7 @@ count_down () {
     if [[ $CURRENT_TASK = "work" ]]; then
         pomodoro=$(refresh_current_pomodoro_output)
         pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
-        printf "%b\t\ta-add task, d-do/undo task, c-cancel/uncancel task. Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
+        printf "%b  a-add task, d-do/undo task, c-cancel/uncancel task. Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
     else 
         pomodoro_lines=0
         printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
@@ -229,7 +229,6 @@ EOF
 }
 
 refresh_current_pomodoro_output () {
-    local prefix_chars=8 # assume 4 spaces for tabs
     local output=("") # assume four spaces for tabs
     local non_color_last_line=""
     local columns=$(tput cols)
@@ -242,19 +241,19 @@ refresh_current_pomodoro_output () {
         else
             local_output="$i: ${TODO[i]}"
         fi
-        local non_color_output="$non_color_last_line $i: ${TODO[i]}, "
-        if [[ ${#non_color_output}+$prefix_chars+4 -gt $columns ]]; then
-            output+=("$local_output, ")
-            non_color_last_line="$i: ${TODO[i]}, "
+        local non_color_output="$non_color_last_line, $i: ${TODO[i]}"
+        if [[ ${#non_color_output}+2 -gt $columns ]]; then # +2 since this is the number of spaces we indent with
+            output+=("$local_output")
+            non_color_last_line="$i: ${TODO[i]}"
         else
-            output[-1]="${output[-1]} $local_output, "
+            output[-1]="${output[-1]}, $local_output"
             non_color_last_line="$non_color_output"
         fi
     done
 
     pomodoro_content=""
     for (( i=0; i<${#output[@]}; i++)) do
-        pomodoro_content="$pomodoro_content    ${output[i]}\n" # 4spaces for indent
+        pomodoro_content="$pomodoro_content  ${output[i]}\n" # 4spaces for indent
     done
     echo "$pomodoro_content"
 }
@@ -292,7 +291,7 @@ cancel_task() {
 #   n : The current pomodoro number
 single_pomodoro_run () {
     if [[ $1 == 1 ]]; then
-        echo "Plan is a list separated by a comma and space e.g. tasks1, task2, task 3"
+        echo "Plan is a list separated by a comma and space e.g. task1, task2, task3"
     fi
     echo "Pomodoro $1"
     read -r -p 'Plan: ' work
@@ -433,6 +432,7 @@ options () {
 main () {
     options "$@"
     rename_window_in_tmux
+    tabs 2
     echo "Starting pomodoro, work=$WORK and rest=$REST minutes"
     local pomodoro_count=1
     if [ -f "$LOG_DIR$FILENAME" ]; then
