@@ -93,6 +93,13 @@ clear_line () {
     done
 }
 
+strip_TODO_tasks () {
+    for (( i=0; i < ${#TODO[@]}; i ++ )); do
+        stripped_task=$(echo "${TODO[i]}" | xargs)
+        TODO[i]="$stripped_task"
+    done
+}
+
 # Counts down from time t until 0 minutes
 # Globals:
 #   SECS_IN_MINUTE
@@ -246,7 +253,11 @@ refresh_current_pomodoro_output () {
             output+=("$local_output")
             non_color_last_line="$i: ${TODO[i]}"
         else
-            output[-1]="${output[-1]}, $local_output"
+            if [[ ${output[-1]} == "" ]]; then
+                output[-1]="$local_output"
+            else
+                output[-1]="${output[-1]}, $local_output"
+            fi
             non_color_last_line="$non_color_output"
         fi
     done
@@ -261,8 +272,9 @@ refresh_current_pomodoro_output () {
 add_to_list() {
     read -r -p "Additional Tasks: " tasks 
     if [[ -n $tasks ]]; then
-        readarray -td', ' temp_arr <<< "$tasks" # comma separated input
+        readarray -td',' temp_arr <<< "$tasks" # comma separated input
         TODO=(${TODO[@]} ${temp_arr[@]})
+        strip_TODO_tasks
     fi
     clear_line 1
 }
@@ -291,21 +303,22 @@ cancel_task() {
 #   n : The current pomodoro number
 single_pomodoro_run () {
     if [[ $1 == 1 ]]; then
-        echo "Plan is a list separated by a comma and space e.g. task1, task2, task3"
+        echo "Plan is a list separated by a comma i.e. task1, task2, task3"
     fi
     echo "Pomodoro $1"
     read -r -p 'Plan: ' work
     clear_line
-    echo -e "\tPlan: $work"
+    echo -e "  Plan: $work"
     # passing in $work using <<<< adds a new line to the input, so we use substitution, see: https://unix.stackexchange.com/a/519917
-    readarray -td', ' TODO < <(printf "%s" "$work") # comma separated input
+    readarray -td',' TODO < <(printf "%s" "$work") # comma separated input
+    strip_TODO_tasks
     local start_time
     start_time=$(date +%R)
 
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         dunstctl set-paused true
     fi
-    echo -e "\tStarting work:"
+    echo -e "  Working:"
     CURRENT_TASK="work"
     # TODO: confirm if removing quotes from $WORK fixes the counter problem
     work_or_rest $WORK
@@ -324,7 +337,7 @@ single_pomodoro_run () {
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         dunstctl set-paused false
     fi
-    echo -e "\tStarting rest:"
+    echo -e "  Resting:"
     CURRENT_TASK="rest"
     work_or_rest $REST
 }
