@@ -236,7 +236,7 @@ EOF
 }
 
 refresh_current_pomodoro_output () {
-    local output=("") # assume four spaces for tabs
+    local output=("")
     local non_color_last_line=""
     local columns=$(tput cols)
 
@@ -445,7 +445,6 @@ options () {
 main () {
     options "$@"
     rename_window_in_tmux
-    tabs 2
     echo "Starting pomodoro, work=$WORK and rest=$REST minutes"
     local pomodoro_count=1
     if [ -f "$LOG_DIR$FILENAME" ]; then
