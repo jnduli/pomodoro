@@ -93,6 +93,13 @@ clear_line () {
     done
 }
 
+strip_TODO_tasks () {
+    for (( i=0; i < ${#TODO[@]}; i ++ )); do
+        stripped_task=$(echo "${TODO[i]}" | xargs)
+        TODO[i]="$stripped_task"
+    done
+}
+
 # Counts down from time t until 0 minutes
 # Globals:
 #   SECS_IN_MINUTE
@@ -113,7 +120,7 @@ count_down () {
     if [[ $CURRENT_TASK = "work" ]]; then
         pomodoro=$(refresh_current_pomodoro_output)
         pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
-        printf "%b\t\ta-add task, d-do/undo task, c-cancel/uncancel task. Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
+        printf "%b  a-add task, d-do/undo task, c-cancel/uncancel task. Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
     else 
         pomodoro_lines=0
         printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
@@ -133,7 +140,7 @@ count_down () {
             if [[ $CURRENT_TASK == "work" ]]; then
                 pomodoro=$(refresh_current_pomodoro_output)
                 pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
-                printf "%b\t\ta-add task, d-do/undo task, c-cancel/uncancel task. Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
+                printf "%bHelp: a-add task, d-do/undo task, c-cancel/uncancel task. Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
             else 
                 pomodoro_lines=0
                 printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
@@ -229,8 +236,7 @@ EOF
 }
 
 refresh_current_pomodoro_output () {
-    local prefix_chars=8 # assume 4 spaces for tabs
-    local output=("") # assume four spaces for tabs
+    local output=("")
     local non_color_last_line=""
     local columns=$(tput cols)
 
@@ -242,19 +248,23 @@ refresh_current_pomodoro_output () {
         else
             local_output="$i: ${TODO[i]}"
         fi
-        local non_color_output="$non_color_last_line $i: ${TODO[i]}, "
-        if [[ ${#non_color_output}+$prefix_chars+4 -gt $columns ]]; then
-            output+=("$local_output, ")
-            non_color_last_line="$i: ${TODO[i]}, "
+        local non_color_output="$non_color_last_line, $i: ${TODO[i]}"
+        if [[ ${#non_color_output}+2 -gt $columns ]]; then # +2 since this is the number of spaces we indent with
+            output+=("$local_output")
+            non_color_last_line="$i: ${TODO[i]}"
         else
-            output[-1]="${output[-1]} $local_output, "
+            if [[ ${output[-1]} == "" ]]; then
+                output[-1]="$local_output"
+            else
+                output[-1]="${output[-1]}, $local_output"
+            fi
             non_color_last_line="$non_color_output"
         fi
     done
 
     pomodoro_content=""
     for (( i=0; i<${#output[@]}; i++)) do
-        pomodoro_content="$pomodoro_content    ${output[i]}\n" # 4spaces for indent
+        pomodoro_content="$pomodoro_content  ${output[i]}\n" # 4spaces for indent
     done
     echo "$pomodoro_content"
 }
@@ -262,8 +272,9 @@ refresh_current_pomodoro_output () {
 add_to_list() {
     read -r -p "Additional Tasks: " tasks 
     if [[ -n $tasks ]]; then
-        readarray -td', ' temp_arr <<< "$tasks" # comma separated input
+        readarray -td',' temp_arr <<< "$tasks" # comma separated input
         TODO=(${TODO[@]} ${temp_arr[@]})
+        strip_TODO_tasks
     fi
     clear_line 1
 }
@@ -292,21 +303,22 @@ cancel_task() {
 #   n : The current pomodoro number
 single_pomodoro_run () {
     if [[ $1 == 1 ]]; then
-        echo "Plan is a list separated by a comma and space e.g. tasks1, task2, task 3"
+        echo "Plan is a list separated by a comma i.e. task1, task2, task3"
     fi
     echo "Pomodoro $1"
     read -r -p 'Plan: ' work
     clear_line
-    echo -e "\tPlan: $work"
+    echo -e "  Plan: $work"
     # passing in $work using <<<< adds a new line to the input, so we use substitution, see: https://unix.stackexchange.com/a/519917
-    readarray -td', ' TODO < <(printf "%s" "$work") # comma separated input
+    readarray -td',' TODO < <(printf "%s" "$work") # comma separated input
+    strip_TODO_tasks
     local start_time
     start_time=$(date +%R)
 
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         dunstctl set-paused true
     fi
-    echo -e "\tStarting work:"
+    echo -e "  Working:"
     CURRENT_TASK="work"
     # TODO: confirm if removing quotes from $WORK fixes the counter problem
     work_or_rest $WORK
@@ -325,7 +337,7 @@ single_pomodoro_run () {
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         dunstctl set-paused false
     fi
-    echo -e "\tStarting rest:"
+    echo -e "  Resting:"
     CURRENT_TASK="rest"
     work_or_rest $REST
 }
@@ -350,7 +362,7 @@ log () {
     touch "$log_filename"
     read -r -p 'Work done: ' work
     clear_line
-    echo -e '\tWork done: ' "$work"
+    echo -e '  Work done: ' "$work"
     echo 'Pomodoro' "$1" "($2):" "$work" >> "$log_filename"
 }
 
