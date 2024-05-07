@@ -37,7 +37,10 @@ fi
 TODO=()
 declare -A COMPLETED
 declare -A ABANDONED
-CURRENT_TASK="work" # temporary value to help determine child tasks, TODO: Drop this
+
+# can be: work, rest, chime, pause
+POMODORO_STATE="work"
+PREVIOUS_POMODORO_STATE="rest"
 
 # Colors used in display
 green='\033[0;32m' # green for done tasks
@@ -117,13 +120,13 @@ count_down () {
     local changed='f'
     local pomodoro_lines=0
     FORCE_QUIT_WORK_REST="false"
-    if [[ $CURRENT_TASK = "work" ]]; then
+    if [[ $POMODORO_STATE = "work" ]]; then
         pomodoro=$(refresh_current_pomodoro_output)
         pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
         printf "%b  a-add task, d-do/undo task, c-cancel/uncancel task. Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
     else 
         pomodoro_lines=0
-        printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
+        printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$POMODORO_STATE" "$POMODORO_STATE" "$printed_minutes"
     fi
 
     SECONDS=0 
@@ -137,47 +140,79 @@ count_down () {
             printed_minutes=$minutes
             # +1 because this is the contents of the pomodoro and the context line with time spent
             clear_line $(( pomodoro_lines + 1 ))
-            if [[ $CURRENT_TASK == "work" ]]; then
+            if [[ $POMODORO_STATE == "work" ]]; then
                 pomodoro=$(refresh_current_pomodoro_output)
                 pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
                 printf "%bHelp: a-add task, d-do/undo task, c-cancel/uncancel task. Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
             else 
                 pomodoro_lines=0
-                printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$CURRENT_TASK" "$CURRENT_TASK" "$printed_minutes"
+                printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$POMODORO_STATE" "$POMODORO_STATE" "$printed_minutes"
             fi
             changed='f'
         fi
-        read -r -t 0.25 -N 1 input || true # no input fails with non zero status
-        if [[ ${input^^} = "P" ]]; then
-            local pausedtime=$SECONDS
-            pause_forever
-            SECONDS=$pausedtime
-        elif [[ ${input^^} == "A" ]]; then
-            # TODO: change inputs to have a time limit too so that it doesn't hang here
-            add_to_list
-            changed='t'
-        elif [[ ${input^^} == "D" ]]; then
-            complete_task
-            changed='t'
-        elif [[ ${input^^} == "C" ]]; then
-            cancel_task
-            changed='t'
-        elif [[ ${input^^} == "Q" ]]; then
-            FORCE_QUIT_WORK_REST="true"
+        handle_countdown_input
+        if [[ $FORCE_QUIT_WORK_REST = "true" ]]; then
             break
         fi
     done
+}
+
+handle_countdown_input () {
+    read -r -t 0.25 -N 1 input || true # no input fails with non zero status
+    if [[ $POMODORO_STATE == "pause" ]]; then
+        if [[ ${input^^} = 'P' ]]; then
+            POMODORO_STATE=$PREVIOUS_POMODORO_STATE
+        fi
+    elif [[ $POMODORO_STATE == "chime" ]]; then
+        # Q stops chiming and moves to next state
+        # C stops chiming and continues previous state
+        next_state=$PREVIOUS_POMODORO_STATE
+        if [[ $PREVIOUS_POMODORO_STATE == "work" ]]; then
+            next_state="rest"
+        else
+            next_state="work"
+        fi
+
+        if [[ ${input^^} = "Q" ]]; then
+            POMODORO_STATE=$next_state
+        elif [[ ${input^^} = "C" ]]; then
+            POMODORO_STATE=$PREVIOUS_POMODORO_STATE
+        fi
+
+    else
+        # Rest and work related inputs
+        if [[ ${input^^} = "P" ]]; then
+            local pausedtime=$SECONDS
+            PREVIOUS_POMODORO_STATE=$POMODORO_STATE
+            POMODORO_STATE="pause"
+            pause_forever
+            SECONDS=$pausedtime
+        elif [[ ${input^^} == "Q" ]]; then
+            FORCE_QUIT_WORK_REST="true"
+        fi
+
+        # Work related inputs
+        if [[ ${input^^} == "A" && $POMODORO_STATE == "work" ]]; then
+            # TODO: change inputs to have a time limit too so that it doesn't hang here
+            add_to_list
+            changed='t'
+        elif [[ ${input^^} == "D" && $POMODORO_STATE == "work" ]]; then
+            complete_task
+            changed='t'
+        elif [[ ${input^^} == "C" && $POMODORO_STATE == "Work" ]]; then
+            cancel_task
+            changed='t'
+        fi
+
+    fi
 }
 
 
 # Stops everything until p is pressed
 pause_forever () {
     echo "PAUSED, press p to unpause"
-    while true; do
-        read -r -t 0.25 -N 1 input || true
-        if [[ ${input^^} = 'P' ]]; then
-            break
-        fi
+    while [[ $POMODORO_STATE == "pause" ]]; do
+        handle_countdown_input
     done
     clear_line
 }
@@ -187,12 +222,13 @@ pause_forever () {
 # Arguments:
 #   time in minutes ($1)
 work_or_rest () {
-    task_continue=0
     local task_no=0
-    while ((task_continue == 0)); do
+    local current_state=$POMODORO_STATE
+    while [[ $POMODORO_STATE == $current_state ]]; do
         count_down "$1" "$task_no"
-        chiming_with_input task_continue # task_continue is set in the called function
-        task_no=$((task_no+1))
+        PREVIOUS_POMODORO_STATE=$POMODORO_STATE
+        POMODORO_STATE="chime"
+        chiming_with_input
     done
 }
 
@@ -210,29 +246,17 @@ Press c to continue with rest/work
 EOF
     echo ""
     SECONDS=0
-    local should_continue
-    should_continue=1
 
     if [[ $FORCE_QUIT_WORK_REST != "true" ]]; then
-        while true; do
+        while [[ $POMODORO_STATE == "chime" ]]; do
             notify $NOTIFICATION_TYPE
-            read -r -t 1.0 -N 1 input || true
-            input=${input:-R}
             duration=$SECONDS
             clear_line
             echo "Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
-            if [[ ${input^^} = "Q" ]]; then
-                should_continue=1
-                break
-            fi
-            if [[ ${input^^} = "C" ]]; then
-                should_continue=0
-                break
-            fi
+            handle_countdown_input
         done
     fi
     clear_line 3
-    eval "$1=$should_continue" # set first parameter to have the return type
 }
 
 refresh_current_pomodoro_output () {
@@ -302,6 +326,12 @@ cancel_task() {
 # Arguments:
 #   n : The current pomodoro number
 single_pomodoro_run () {
+    # FIXME!: Change this to use TEA
+    # How:
+    # Define model
+    # Define model changing actions
+    # Define view update means
+    # Use LINENO to help refresh the queues
     if [[ $1 == 1 ]]; then
         echo "Plan is a list separated by a comma i.e. task1, task2, task3"
     fi
@@ -319,7 +349,7 @@ single_pomodoro_run () {
         dunstctl set-paused true
     fi
     echo -e "  Working:"
-    CURRENT_TASK="work"
+    POMODORO_STATE="work"
     # TODO: confirm if removing quotes from $WORK fixes the counter problem
     work_or_rest $WORK
 
@@ -338,7 +368,7 @@ single_pomodoro_run () {
         dunstctl set-paused false
     fi
     echo -e "  Resting:"
-    CURRENT_TASK="rest"
+    POMODORO_STATE="rest"
     work_or_rest $REST
 }
 
