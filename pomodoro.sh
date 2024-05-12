@@ -120,14 +120,10 @@ count_down () {
     local changed='f'
     local pomodoro_lines=0
     FORCE_QUIT_WORK_REST="false"
-    if [[ $POMODORO_STATE = "work" ]]; then
-        pomodoro=$(refresh_current_pomodoro_output)
-        pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
-        printf "%b  a-add task, d-do/undo task, c-cancel/uncancel task. Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
-    else 
-        pomodoro_lines=0
-        printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$POMODORO_STATE" "$POMODORO_STATE" "$printed_minutes"
-    fi
+    local content
+    content=$(view_content)
+    pomodoro_lines=$(echo -en "$content" | wc -l)
+    printf "%b Time spent is %s minutes\n" "$content" "$printed_minutes"
 
     SECONDS=0 
     if [ -n "$2" ]; then
@@ -140,14 +136,9 @@ count_down () {
             printed_minutes=$minutes
             # +1 because this is the contents of the pomodoro and the context line with time spent
             clear_line $(( pomodoro_lines + 1 ))
-            if [[ $POMODORO_STATE == "work" ]]; then
-                pomodoro=$(refresh_current_pomodoro_output)
-                pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
-                printf "%bHelp: a-add task, d-do/undo task, c-cancel/uncancel task. Time spend %s minutes\n" "$pomodoro" "$printed_minutes"
-            else 
-                pomodoro_lines=0
-                printf "q-quit %s, , c-continue %s: Time spent is %s minutes\n" "$POMODORO_STATE" "$POMODORO_STATE" "$printed_minutes"
-            fi
+            content=$(view_content)
+            pomodoro_lines=$(echo -en "$content" | wc -l)
+            printf "%b Time spent is %s minutes\n" "$content" "$printed_minutes"
             changed='f'
         fi
         handle_countdown_input
@@ -155,6 +146,19 @@ count_down () {
             break
         fi
     done
+}
+
+view_content () {
+    local content=""
+    if [[ $POMODORO_STATE = "work" ]]; then
+        pomodoro=$(refresh_current_pomodoro_output)
+        pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
+        content=$(printf "%b  a-add task, d-do/undo task, c-cancel/uncancel task." "$pomodoro")
+    elif [[ $POMODORO_STATE = "rest" ]]; then 
+        pomodoro_lines=0
+        content=$(printf "q-quit %s, , c-continue %s: " "$POMODORO_STATE" "$POMODORO_STATE") 
+    fi
+    echo "$content"
 }
 
 handle_countdown_input () {
@@ -199,7 +203,7 @@ handle_countdown_input () {
         elif [[ ${input^^} == "D" && $POMODORO_STATE == "work" ]]; then
             complete_task
             changed='t'
-        elif [[ ${input^^} == "C" && $POMODORO_STATE == "Work" ]]; then
+        elif [[ ${input^^} == "C" && $POMODORO_STATE == "work" ]]; then
             cancel_task
             changed='t'
         fi
