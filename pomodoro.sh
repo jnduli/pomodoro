@@ -19,9 +19,6 @@ readonly CONFIG_FILE="$HOME/.config/pomodoro/config"
 WORK=25
 REST=5
 SECS_IN_MINUTE=60
-LOG_DIR="$HOME/.pomodoro/"
-FILENAME="$(date +"%F").log"
-SHOULD_LOG=1 # can be 0 or 1
 NOTIFICATION_TYPE="sound" # can also be dunst
 DISABLE_NOTIFICATIONS_WHILE_WORKING=1 # can be 0 or 1
 
@@ -364,9 +361,6 @@ single_pomodoro_run () {
 
     local end_time
     end_time=$(date +%R)
-    if [ $SHOULD_LOG = 1 ]; then
-        log "$1" "$start_time - $end_time" "$LOG_DIR$FILENAME"
-    fi
 
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         dunstctl set-paused false
@@ -383,22 +377,6 @@ rename_window_in_tmux () {
     fi
 }
 
-# Add work done to day's logs
-# Globals:
-#   LOG_DIR
-# Arguments:
-#   n - pomodoro number
-#   t - time string ie. (starttime - endtime)
-#   file_name
-log () {
-    log_filename="$LOG_DIR$FILENAME"
-    mkdir -p "$LOG_DIR"
-    touch "$log_filename"
-    read -r -p 'Work done: ' work
-    clear_line
-    echo -e '  Work done: ' "$work"
-    echo 'Pomodoro' "$1" "($2):" "$work" >> "$log_filename"
-}
 
 show_help () {
     cat <<EOF
@@ -427,8 +405,6 @@ Here's an example with comments:
 
 WORK=25 # time to work in minutes
 REST=5 # time to rest in minutes
-LOG_DIR="$HOME/.pomodoro/" # deprecated logs folder
-SHOULD_LOG=1 # deprecated, whether to log what I've done, can be 0 or 1
 NOTIFICATION_TYPE="sound" # can also be dunst
 DISABLE_NOTIFICATIONS_WHILE_WORKING=1 # can be 0 or 1
 EOF
@@ -439,8 +415,6 @@ EOF
 #   WORK
 #   REST
 #   SECS_IN_MINUTE
-#   LOG_DIF
-#   SHOULD_LOG
 options () {
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -460,7 +434,6 @@ options () {
                 ;;
             --debug-mode)
                 SECS_IN_MINUTE=1
-                LOG_DIR=".logs/"
                 shift
                 ;;
             -h|--help)
@@ -481,11 +454,6 @@ main () {
     rename_window_in_tmux
     echo "Starting pomodoro, work=$WORK and rest=$REST minutes"
     local pomodoro_count=1
-    if [ -f "$LOG_DIR$FILENAME" ]; then
-        mapfile -td' ' arr < <(tail -1 $LOG_DIR$FILENAME) # create array of words from last line in logs
-        START=${arr[1]:-0} # second item is the latest pomodoro
-        pomodoro_count=$((START+1))
-    fi
     # infinite loop
     while true; do
         single_pomodoro_run $pomodoro_count
