@@ -153,7 +153,11 @@ view_content () {
         content=$(printf "%b  a-add task, d-do/undo task, c-cancel/uncancel task." "$pomodoro")
     elif [[ $POMODORO_STATE = "rest" ]]; then 
         pomodoro_lines=0
-        content=$(printf "q-quit %s, , c-continue %s: " "$POMODORO_STATE" "$POMODORO_STATE") 
+        content=$(printf "Resting: q-quit %s, , c-continue %s: " "$POMODORO_STATE" "$POMODORO_STATE") 
+    elif [[ $POMODORO_STATE == "pause" ]]; then
+        content="Paused: p to unpause"
+    elif [[ $POMODORO_STATE == "chime" ]]; then
+        content="Chiming: q-stop chiming, c-continue with previous state"
     fi
     echo "$content"
 }
@@ -209,13 +213,14 @@ handle_countdown_input () {
 }
 
 
-# Stops everything until p is pressed
 pause_forever () {
-    echo "PAUSED, press p to unpause"
+    pause_instructions=$(view_content)
+    pomodoro_lines=$(echo -en "$pause_instructions" | wc -l)
+    printf "%b" "$pause_instructions"
     while [[ $POMODORO_STATE == "pause" ]]; do
         handle_countdown_input
     done
-    clear_line
+    clear_line "$pomodoro_lines"
 }
 
 
@@ -241,23 +246,21 @@ work_or_rest () {
 # Returns
 #   0 for True, 1 for False
 chiming_with_input () {
-    cat <<EOF
-Press q to stop chiming and start next session
-Press c to continue with rest/work
-EOF
-    echo ""
+    chiming_instructions=$(view_content)
+    pomodoro_lines=$(echo -en "$chiming_instructions" | wc -l)
+    printf "%b\n" "$chiming_instructions"
     SECONDS=0
 
     if [[ $FORCE_QUIT_WORK_REST != "true" ]]; then
         while [[ $POMODORO_STATE == "chime" ]]; do
             notify $NOTIFICATION_TYPE
             duration=$SECONDS
-            clear_line
             echo "Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
             handle_countdown_input
+            clear_line
         done
     fi
-    clear_line 3
+    clear_line "$pomodoro_lines"
 }
 
 refresh_current_pomodoro_output () {
@@ -295,7 +298,7 @@ refresh_current_pomodoro_output () {
 }
 
 add_to_list() {
-    read -r -p "Additional Tasks: " tasks 
+    read -r -p "Add Tasks: " tasks 
     if [[ -n $tasks ]]; then
         readarray -td',' temp_arr <<< "$tasks" # comma separated input
         TODO=(${TODO[@]} ${temp_arr[@]})
@@ -320,36 +323,17 @@ cancel_task() {
     clear_line 1
 }
 
-# Runs one complete pomodoro i.e. with work and rest
-# Globals:
-#   WORK
-#   REST
 # Arguments:
 #   n : The current pomodoro number
 single_pomodoro_run () {
-    # FIXME!: Change this to use TEA
-    # How:
-    # Define model
-    # Define model changing actions
-    # Define view update means
-    # Use LINENO to help refresh the queues
     if [[ $1 == 1 ]]; then
         echo "Plan is a list separated by a comma i.e. task1, task2, task3"
     fi
     echo "Pomodoro $1"
-    read -r -p 'Plan: ' work
-    clear_line
-    echo -e "  Plan: $work"
-    # passing in $work using <<<< adds a new line to the input, so we use substitution, see: https://unix.stackexchange.com/a/519917
-    readarray -td',' TODO < <(printf "%s" "$work") # comma separated input
-    strip_TODO_tasks
-    local start_time
-    start_time=$(date +%R)
-
+    add_to_list
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         dunstctl set-paused true
     fi
-    echo -e "  Working:"
     POMODORO_STATE="work"
     # TODO: confirm if removing quotes from $WORK fixes the counter problem
     work_or_rest $WORK
@@ -359,13 +343,9 @@ single_pomodoro_run () {
     COMPLETED=()
     ABANDONED=()
 
-    local end_time
-    end_time=$(date +%R)
-
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         dunstctl set-paused false
     fi
-    echo -e "  Resting:"
     POMODORO_STATE="rest"
     work_or_rest $REST
 }
