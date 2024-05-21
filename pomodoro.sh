@@ -216,11 +216,11 @@ handle_countdown_input () {
 pause_forever () {
     pause_instructions=$(view_content)
     pomodoro_lines=$(echo -en "$pause_instructions" | wc -l)
-    printf "%b" "$pause_instructions"
+    printf "%b\n" "$pause_instructions"
     while [[ $POMODORO_STATE == "pause" ]]; do
         handle_countdown_input
     done
-    clear_line "$pomodoro_lines"
+    clear_line $(( pomodoro_lines + 1))
 }
 
 
