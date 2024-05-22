@@ -230,7 +230,7 @@ pause_forever () {
 work_or_rest () {
     local task_no=0
     local current_state=$POMODORO_STATE
-    while [[ $POMODORO_STATE == $current_state ]]; do
+    while [[ $POMODORO_STATE == "$current_state" ]]; do
         count_down "$1" "$task_no"
         PREVIOUS_POMODORO_STATE=$POMODORO_STATE
         POMODORO_STATE="chime"
@@ -335,8 +335,7 @@ single_pomodoro_run () {
         dunstctl set-paused true
     fi
     POMODORO_STATE="work"
-    # TODO: confirm if removing quotes from $WORK fixes the counter problem
-    work_or_rest $WORK
+    work_or_rest "$WORK"
 
     # reset global values
     TODO=()
@@ -347,7 +346,7 @@ single_pomodoro_run () {
         dunstctl set-paused false
     fi
     POMODORO_STATE="rest"
-    work_or_rest $REST
+    work_or_rest "$REST"
 }
 
 rename_window_in_tmux () {
