@@ -117,16 +117,17 @@ count_down () {
     local changed='f'
     local pomodoro_lines=0
     FORCE_QUIT_WORK_REST="false"
+    local task_no=$2
     local content
     content=$(view_content)
     pomodoro_lines=$(echo -en "$content" | wc -l)
-    printf "%b Time spent is %s minutes\n" "$content" "$printed_minutes"
-
-    SECONDS=0 
-    if [ -n "$2" ]; then
-        SECONDS=$(($1*SECS_IN_MINUTE*$2))
-        secs_to_count_down=$((($2+1)*$1*SECS_IN_MINUTE))
+    if [[ $task_no -gt 0 ]]; then
+        clear_line $(( pomodoro_lines + 1 ))
+    else
+        SECONDS=0 
     fi
+    secs_to_count_down=$(((task_no+1)*$1*SECS_IN_MINUTE))
+    printf "%b Time spent is %s minutes\n" "$content" "$printed_minutes"
     while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
         minutes=$(( SECONDS/SECS_IN_MINUTE ))
         if [[ ${changed^^} == 'T' || $printed_minutes != "$minutes" ]]; then # updates screen after every minute, preventing stuttering
@@ -235,6 +236,7 @@ work_or_rest () {
         PREVIOUS_POMODORO_STATE=$POMODORO_STATE
         POMODORO_STATE="chime"
         chiming_with_input
+        task_no=$(( task_no + 1))
     done
 }
 
@@ -260,7 +262,7 @@ chiming_with_input () {
             clear_line
         done
     fi
-    clear_line "$pomodoro_lines"
+    clear_line "$(( pomodoro_lines + 1 ))"
 }
 
 refresh_current_pomodoro_output () {
