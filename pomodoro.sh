@@ -123,6 +123,7 @@ count_down () {
     pomodoro_lines=$(echo -en "$content" | wc -l)
     if [[ $task_no -gt 0 ]]; then
         clear_line $(( pomodoro_lines + 1 ))
+        SECONDS=$((task_no*$1*SECS_IN_MINUTE))
     else
         SECONDS=0 
     fi
