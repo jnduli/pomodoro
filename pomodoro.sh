@@ -1,4 +1,4 @@
-#!/bin/bash
+##!/usr/bin/env bash
 #
 # Runs pomodoro with specified work duration and rest
 #
@@ -44,17 +44,19 @@ green='\033[0;32m' # green for done tasks
 strikethrough='\033[0;9m' # strike through abandoned tasks
 clear='\033[0m' # clear formatting
 
-PLAY="paplay"
-
-if ! command -v "$PLAY" &> /dev/null; then
-    PLAY="aplay"
-fi
-
-PREREQUISITES=("$PLAY" "notify-send" "dunstctl")
+PREREQUISITES=("paplay" "notify-send" "dunstctl" "tput")
 
 for command in "${PREREQUISITES[@]}"; do
     if ! command -v "$command" &> /dev/null; then
-        printf "Command: %s is not found, please install it\n" "$command"
+        helper_context=""
+        if [[ "$command" = "paplay" ]]; then
+            helper_context="Try to install pulseaudio"
+        elif [[ "$command" = "notify-send" ]]; then
+            helper_context="Try to install libnotify"
+        elif [[ "$command" = "tput" ]]; then
+            helper_context="Try to install ncurses"
+        fi
+        printf "Command: %s is not found, please install it. %s\n" "$command" "$helper_context"
         exit 1
     fi
 done
