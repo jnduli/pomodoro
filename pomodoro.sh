@@ -20,7 +20,7 @@ WORK=25
 REST=5
 SECS_IN_MINUTE=60
 NOTIFICATION_TYPE="sound" # can also be dunst
-DISABLE_NOTIFICATIONS_WHILE_WORKING=1 # can be 0 or 1
+DISABLE_NOTIFICATIONS_WHILE_WORKING=0 # can be 0 or 1
 
 FORCE_QUIT_WORK_REST="false"
 
@@ -220,7 +220,7 @@ handle_countdown_input () {
 pause_forever () {
     pause_instructions=$(view_content)
     pomodoro_lines=$(echo -en "$pause_instructions" | wc -l)
-    printf "%b\n" "$pause_instructions"
+    printf "%b" "$pause_instructions"
     while [[ $POMODORO_STATE == "pause" ]]; do
         handle_countdown_input
     done
@@ -255,10 +255,14 @@ chiming_with_input () {
     pomodoro_lines=$(echo -en "$chiming_instructions" | wc -l)
     printf "%b\n" "$chiming_instructions"
     SECONDS=0
+    prev_duration=0
 
     if [[ $FORCE_QUIT_WORK_REST != "true" ]]; then
         while [[ $POMODORO_STATE == "chime" ]]; do
-            notify $NOTIFICATION_TYPE
+            if (( SECONDS > prev_duration && SECONDS % 2 == 0 )); then
+                prev_duration=$SECONDS
+                notify $NOTIFICATION_TYPE
+            fi
             duration=$SECONDS
             echo "Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
             handle_countdown_input
