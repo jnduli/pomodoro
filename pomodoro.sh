@@ -187,7 +187,6 @@ handle_countdown_input () {
         elif [[ ${input^^} = "C" ]]; then
             POMODORO_STATE=$PREVIOUS_POMODORO_STATE
         fi
-
     else
         # Rest and work related inputs
         if [[ ${input^^} = "P" ]]; then
@@ -212,7 +211,6 @@ handle_countdown_input () {
             cancel_task
             changed='t'
         fi
-
     fi
 }
 
@@ -220,11 +218,12 @@ handle_countdown_input () {
 pause_forever () {
     pause_instructions=$(view_content)
     pomodoro_lines=$(echo -en "$pause_instructions" | wc -l)
-    printf "%b" "$pause_instructions"
     while [[ $POMODORO_STATE == "pause" ]]; do
+        printf "%b\n" "$pause_instructions"
         handle_countdown_input
+        clear_line "$(( pomodoro_lines + 1 ))"
     done
-    clear_line $(( pomodoro_lines + 1))
+    clear_line 1
 }
 
 
