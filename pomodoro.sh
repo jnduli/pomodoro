@@ -81,17 +81,15 @@ notify () {
 }
 
 # Deletes n lines and places cursor on previous line 
-# Arguments
-#   n (Optional, defaults to 1): No of lines to clear
-# Returns
-#   None
+# Arg: n (Optional, defaults to 1): No of lines to clear
 clear_line () {
+    local columns=$(tput cols)
     local lines=${1:-1} # defaults to 1
     while (( lines > 0 )); do 
-        printf "\033[1A"  # move cursor one line up
-        printf "\033[K"   # delete till end of line
-        printf "\r" # go to the beginning of the line
-        lines=$lines-1
+        printf "\033[1A"
+        tput cuf $columns
+        printf "\033[0J"
+        lines=$(( lines-1 ))
     done
 }
 
@@ -124,22 +122,22 @@ count_down () {
     content=$(view_content)
     pomodoro_lines=$(echo -en "$content" | wc -l)
     if [[ $task_no -gt 0 ]]; then
-        clear_line $(( pomodoro_lines + 1 ))
+        clear_line $(( pomodoro_lines ))
         SECONDS=$((task_no*$1*SECS_IN_MINUTE))
     else
         SECONDS=0 
     fi
     secs_to_count_down=$(((task_no+1)*$1*SECS_IN_MINUTE))
-    printf "%b Time spent is %s minutes\n" "$content" "$printed_minutes"
+    printf "%b Time spent is %s minutes" "$content" "$printed_minutes"
     while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
         minutes=$(( SECONDS/SECS_IN_MINUTE ))
         if [[ ${changed^^} == 'T' || $printed_minutes != "$minutes" ]]; then # updates screen after every minute, preventing stuttering
             printed_minutes=$minutes
             # +1 because this is the contents of the pomodoro and the context line with time spent
-            clear_line $(( pomodoro_lines + 1 ))
+            clear_line $(( pomodoro_lines ))
             content=$(view_content)
             pomodoro_lines=$(echo -en "$content" | wc -l)
-            printf "%b Time spent is %s minutes\n" "$content" "$printed_minutes"
+            printf "%b Time spent is %s minutes" "$content" "$printed_minutes"
             changed='f'
         fi
         handle_countdown_input
@@ -154,14 +152,14 @@ view_content () {
     if [[ $POMODORO_STATE = "work" ]]; then
         pomodoro=$(refresh_current_pomodoro_output)
         pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
-        content=$(printf "%b  a-add task, d-do/undo task, c-cancel/uncancel task." "$pomodoro")
+        content=$(printf "\n%b\n  a-add task, d-do/undo task, c-cancel/uncancel task." "$pomodoro")
     elif [[ $POMODORO_STATE = "rest" ]]; then 
-        pomodoro_lines=0
-        content=$(printf "Resting: q-quit %s, , c-continue %s: " "$POMODORO_STATE" "$POMODORO_STATE") 
+        pomodoro_lines=1
+        content=$(printf "\nResting: q-quit %s, , c-continue %s:" "$POMODORO_STATE" "$POMODORO_STATE") 
     elif [[ $POMODORO_STATE == "pause" ]]; then
-        content="Paused: p to unpause"
+        content="\nPaused: p to unpause"
     elif [[ $POMODORO_STATE == "chime" ]]; then
-        content="Chiming: q-stop chiming, c-continue with previous state"
+        content="\nChiming: q-stop chiming, c-continue with previous state"
     fi
     echo "$content"
 }
@@ -219,11 +217,11 @@ pause_forever () {
     pause_instructions=$(view_content)
     pomodoro_lines=$(echo -en "$pause_instructions" | wc -l)
     while [[ $POMODORO_STATE == "pause" ]]; do
-        printf "%b\n" "$pause_instructions"
+        printf "%b" "$pause_instructions"
         handle_countdown_input
-        clear_line "$(( pomodoro_lines + 1 ))"
+        clear_line "$(( pomodoro_lines ))"
     done
-    clear_line 1
+    clear_line "$(( pomodoro_lines ))" 
 }
 
 
@@ -252,7 +250,7 @@ work_or_rest () {
 chiming_with_input () {
     chiming_instructions=$(view_content)
     pomodoro_lines=$(echo -en "$chiming_instructions" | wc -l)
-    printf "%b\n" "$chiming_instructions"
+    printf "%b" "$chiming_instructions"
     SECONDS=0
     prev_duration=0
 
@@ -263,12 +261,12 @@ chiming_with_input () {
                 notify $NOTIFICATION_TYPE
             fi
             duration=$SECONDS
-            echo "Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
+            printf "\nChiming duration: $((duration / 60)) min $((duration % 60)) sec"
             handle_countdown_input
             clear_line
         done
     fi
-    clear_line "$(( pomodoro_lines + 1 ))"
+    clear_line "$(( pomodoro_lines ))"
 }
 
 refresh_current_pomodoro_output () {
@@ -298,46 +296,49 @@ refresh_current_pomodoro_output () {
         fi
     done
 
-    pomodoro_content=""
-    for (( i=0; i<${#output[@]}; i++)) do
-        pomodoro_content="$pomodoro_content  ${output[i]}\n" # 4spaces for indent
+    pomodoro_content="  ${output[0]}"
+    for (( i=1; i<${#output[@]}; i++)) do
+        pomodoro_content="$pomodoro_content\n  ${output[i]}" # 2spaces for indent
     done
     echo "$pomodoro_content"
 }
 
 add_to_list() {
-    read -r -p "Add Tasks: " tasks 
+    read -r -p $'\nAdd Tasks: ' tasks 
     if [[ -n $tasks ]]; then
         readarray -td',' temp_arr <<< "$tasks" # comma separated input
         TODO=(${TODO[@]} ${temp_arr[@]})
         strip_TODO_tasks
     fi
-    clear_line 1
+    clear_line 2 # after input, new line is added
 }
 
 complete_task() { # rename to complete task
-    read -r -p "Tasks no: " task_index
+    read -r -p $'\nTasks no: ' task_index
     if [[ -n $task_index ]]; then
         [[ ${COMPLETED["$task_index"]+Y} ]] && unset 'COMPLETED["$task_index"]' || COMPLETED["$task_index"]="DONE"
     fi
-    clear_line 1
+    clear_line 2 # after input, new line is added
 }
 
 cancel_task() {
-    read -r -p "Tasks no: " task_index
+    read -r -p $'\nTasks no: ' task_index
     if [[ -n $task_index ]]; then
         [[ ${ABANDONED["$task_index"]+Y} ]] && unset 'ABANDONED["$task_index"]' || ABANDONED["$task_index"]="ABANDONED"
     fi
-    clear_line 1
+    clear_line 2 # after input, new line is added
 }
 
 # Arguments:
 #   n : The current pomodoro number
 single_pomodoro_run () {
+    local message=""
     if [[ $1 == 1 ]]; then
-        echo "Plan is a list separated by a comma i.e. task1, task2, task3"
+        message="\nPlan is a list separated by a command i.e. task1,task2,task3\nPomodoro $1"
+    else
+        message="\nPomodoro $1"
     fi
-    echo "Pomodoro $1"
+    printf "%b" "$message"
     add_to_list
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         dunstctl set-paused true
@@ -439,9 +440,8 @@ options () {
 main () {
     options "$@"
     rename_window_in_tmux
-    echo "Starting pomodoro, work=$WORK and rest=$REST minutes"
+    printf "Starting pomodoro, work=$WORK and rest=$REST minutes"
     local pomodoro_count=1
-    # infinite loop
     while true; do
         single_pomodoro_run $pomodoro_count
         pomodoro_count=$((pomodoro_count+1))
