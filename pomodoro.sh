@@ -95,7 +95,7 @@ clear_line () {
 
 strip_TODO_tasks () {
     for (( i=0; i < ${#TODO[@]}; i ++ )); do
-        stripped_task=$(echo "${TODO[i]}" | xargs)
+        stripped_task=$(echo "${TODO[i]}" | xargs -I _ printf _ )
         TODO[i]="$stripped_task"
     done
 }
