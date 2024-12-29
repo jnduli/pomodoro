@@ -73,7 +73,8 @@ notify () {
     i3_lock_process=$(pgrep -c i3lock || true) ## I use i3lock together with xautolock
     if [[ $i3_lock_process == "0" ]]; then
         if [[ ${notify_type} == "sound" ]]; then
-            paplay $SOUNDFILE
+            local paplay_volume=${VOLUME:-20000}
+            paplay --volume="${paplay_volume}" $SOUNDFILE
         else
             notify-send --app-name="pomodoro" "Check pomodoro, either break or work has ended"
         fi
@@ -252,16 +253,14 @@ chiming_with_input () {
     pomodoro_lines=$(echo -en "$chiming_instructions" | wc -l)
     printf "%b" "$chiming_instructions"
     SECONDS=0
-    prev_duration=0
 
     if [[ $FORCE_QUIT_WORK_REST != "true" ]]; then
         while [[ $POMODORO_STATE == "chime" ]]; do
-            if (( SECONDS > prev_duration && SECONDS % 2 == 0 )); then
-                prev_duration=$SECONDS
+            if (( SECONDS % 3 == 0 )); then # chime every 3 seconds
                 notify $NOTIFICATION_TYPE
             fi
             duration=$SECONDS
-            printf "\nChiming duration: $((duration / 60)) min $((duration % 60)) sec"
+            printf "\nChiming duration: %s min %s sec" "$((duration / 60))" "$((duration % 60))"
             handle_countdown_input
             clear_line
         done

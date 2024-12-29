@@ -4,7 +4,6 @@
 
 readonly SOUNDFILE='alarm.oga'
 
-
 notify () {
     echo "Press q to stop sound"
     while true; do
@@ -23,6 +22,7 @@ Copyright (C) 2022: John Nduli K.
 timer.sh 
 starts a timer from the terminal, ringing after time is done.
 
+-t 5s/5m: sleep for 5 seconds/5minutes
 -h: Show help
 times: times passed to sleep
 EOF
