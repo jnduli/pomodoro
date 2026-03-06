@@ -74,7 +74,7 @@ notify () {
     if [[ $i3_lock_process == "0" ]]; then
         if [[ ${notify_type} == "sound" ]]; then
             local paplay_volume=${VOLUME:-20000}
-            paplay --volume="${paplay_volume}" $SOUNDFILE
+            paplay --volume="${paplay_volume}" "$SOUNDFILE"
         else
             notify-send --app-name="pomodoro" "Check pomodoro, either break or work has ended"
         fi
@@ -88,7 +88,7 @@ clear_line () {
     local lines=${1:-1} # defaults to 1
     while (( lines > 0 )); do 
         printf "\033[1A"
-        tput cuf $columns
+        tput cuf "$columns"
         printf "\033[0J"
         lines=$(( lines-1 ))
     done
@@ -96,7 +96,7 @@ clear_line () {
 
 strip_TODO_tasks () {
     for (( i=0; i < ${#TODO[@]}; i ++ )); do
-        stripped_task=$(echo "${TODO[i]}" | xargs -I _ printf _ )
+        stripped_task=$(echo "${TODO[i]}" | xargs -I _ printf '%s' _ )
         TODO[i]="$stripped_task"
     done
 }
@@ -107,7 +107,7 @@ strip_TODO_tasks () {
 #   SECONDS
 # Arguments:
 #   time in minutes ($1)
-#   break_avoided (Optional $2): the number of times break has been avoided
+#   task_no ($2): the number of times this work/rest has been repeated
 count_down () {
     # TODO: this should behave differently depending of its work or rest
     # changes in refactor
@@ -162,7 +162,7 @@ view_content () {
     elif [[ $POMODORO_STATE == "chime" ]]; then
         content="\nChiming: q-stop chiming, c-continue with previous state"
     fi
-    echo "$content"
+    printf '%s\n' "$content"
 }
 
 handle_countdown_input () {
@@ -257,7 +257,7 @@ chiming_with_input () {
     if [[ $FORCE_QUIT_WORK_REST != "true" ]]; then
         while [[ $POMODORO_STATE == "chime" ]]; do
             if (( SECONDS % 3 == 0 )); then # chime every 3 seconds
-                notify $NOTIFICATION_TYPE
+                notify "$NOTIFICATION_TYPE"
             fi
             duration=$SECONDS
             printf "\nChiming duration: %s min %s sec" "$((duration / 60))" "$((duration % 60))"
@@ -306,7 +306,7 @@ add_to_list() {
     read -r -p $'\nAdd Tasks: ' tasks 
     if [[ -n $tasks ]]; then
         readarray -td',' temp_arr <<< "$tasks" # comma separated input
-        TODO=(${TODO[@]} ${temp_arr[@]})
+        TODO+=("${temp_arr[@]}")
         strip_TODO_tasks
     fi
     clear_line 2 # after input, new line is added
@@ -425,7 +425,7 @@ options () {
                 ;;
             -h|--help)
                 show_help
-                exit 1
+                exit 0
                 ;;
             *)
                 echo "Invalid option: $1" >&2
