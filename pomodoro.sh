@@ -255,9 +255,11 @@ chiming_with_input () {
     SECONDS=0
 
     if [[ $FORCE_QUIT_WORK_REST != "true" ]]; then
+        local last_chime=-1
         while [[ $POMODORO_STATE == "chime" ]]; do
-            if (( SECONDS % 3 == 0 )); then # chime every 3 seconds
+            if (( SECONDS % 3 == 0 && SECONDS != last_chime )); then # chime every 3 seconds
                 notify "$NOTIFICATION_TYPE"
+                last_chime=$SECONDS
             fi
             duration=$SECONDS
             printf "\nChiming duration: %s min %s sec" "$((duration / 60))" "$((duration % 60))"
@@ -437,6 +439,8 @@ options () {
 }
 
 main () {
+    # Ensure clean terminal state if the script is interrupted mid-render
+    trap 'printf "\n"; tput cnorm; exit 0' INT TERM
     options "$@"
     rename_window_in_tmux
     printf "Starting pomodoro, work=$WORK and rest=$REST minutes"
