@@ -151,7 +151,7 @@ count_down () {
 view_content () {
     local content=""
     if [[ $POMODORO_STATE = "work" ]]; then
-        pomodoro=$(refresh_current_pomodoro_output)
+        local pomodoro=$(refresh_current_pomodoro_output)
         pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
         content=$(printf "\n%b\n  a-add task, d-do/undo task, c-cancel/uncancel task." "$pomodoro")
     elif [[ $POMODORO_STATE = "rest" ]]; then 
@@ -166,6 +166,7 @@ view_content () {
 }
 
 handle_countdown_input () {
+    local input
     read -r -t 0.25 -N 1 input || true # no input fails with non zero status
     if [[ $POMODORO_STATE == "pause" ]]; then
         if [[ ${input^^} = 'P' ]]; then
@@ -174,7 +175,7 @@ handle_countdown_input () {
     elif [[ $POMODORO_STATE == "chime" ]]; then
         # Q stops chiming and moves to next state
         # C stops chiming and continues previous state
-        next_state=$PREVIOUS_POMODORO_STATE
+        local next_state=$PREVIOUS_POMODORO_STATE
         if [[ $PREVIOUS_POMODORO_STATE == "work" ]]; then
             next_state="rest"
         else
@@ -215,8 +216,8 @@ handle_countdown_input () {
 
 
 pause_forever () {
-    pause_instructions=$(view_content)
-    pomodoro_lines=$(echo -en "$pause_instructions" | wc -l)
+    local pause_instructions=$(view_content)
+    local pomodoro_lines=$(echo -en "$pause_instructions" | wc -l)
     while [[ $POMODORO_STATE == "pause" ]]; do
         printf "%b" "$pause_instructions"
         handle_countdown_input
@@ -249,8 +250,8 @@ work_or_rest () {
 # Returns
 #   0 for True, 1 for False
 chiming_with_input () {
-    chiming_instructions=$(view_content)
-    pomodoro_lines=$(echo -en "$chiming_instructions" | wc -l)
+    local chiming_instructions=$(view_content)
+    local pomodoro_lines=$(echo -en "$chiming_instructions" | wc -l)
     printf "%b" "$chiming_instructions"
     SECONDS=0
 
@@ -261,7 +262,7 @@ chiming_with_input () {
                 notify "$NOTIFICATION_TYPE"
                 last_chime=$SECONDS
             fi
-            duration=$SECONDS
+            local duration=$SECONDS
             printf "\nChiming duration: %s min %s sec" "$((duration / 60))" "$((duration % 60))"
             handle_countdown_input
             clear_line
@@ -297,7 +298,7 @@ refresh_current_pomodoro_output () {
         fi
     done
 
-    pomodoro_content="  ${output[0]}"
+    local pomodoro_content="  ${output[0]}"
     for (( i=1; i<${#output[@]}; i++)) do
         pomodoro_content="$pomodoro_content\n  ${output[i]}" # 2spaces for indent
     done
