@@ -22,7 +22,6 @@ SECS_IN_MINUTE=60
 NOTIFICATION_TYPE="sound" # can also be dunst
 DISABLE_NOTIFICATIONS_WHILE_WORKING=0 # can be 0 or 1
 
-FORCE_QUIT_WORK_REST="false"
 
 # Loading values from configuration file stored in ~/.config/pomodoro/config.sh
 if [ -f "$CONFIG_FILE" ]; then
@@ -40,9 +39,9 @@ POMODORO_STATE="work"
 PREVIOUS_POMODORO_STATE="rest"
 
 # Colors used in display
-green='\033[0;32m' # green for done tasks
-strikethrough='\033[0;9m' # strike through abandoned tasks
-clear='\033[0m' # clear formatting
+readonly green='\033[0;32m' # green for done tasks
+readonly strikethrough='\033[0;9m' # strike through abandoned tasks
+readonly clear='\033[0m' # clear formatting
 
 PREREQUISITES=("paplay" "notify-send" "dunstctl" "tput")
 
@@ -117,7 +116,6 @@ count_down () {
     local printed_minutes=0
     local changed='f'
     local pomodoro_lines=0
-    FORCE_QUIT_WORK_REST="false"
     local task_no=$2
     local content
     content=$(view_content)
@@ -141,10 +139,7 @@ count_down () {
             printf "%b Time spent is %s minutes" "$content" "$printed_minutes"
             changed='f'
         fi
-        handle_countdown_input
-        if [[ $FORCE_QUIT_WORK_REST = "true" ]]; then
-            break
-        fi
+        handle_countdown_input || break
     done
 }
 
@@ -196,7 +191,7 @@ handle_countdown_input () {
             pause_forever
             SECONDS=$pausedtime
         elif [[ ${input^^} == "Q" ]]; then
-            FORCE_QUIT_WORK_REST="true"
+            return 1
         fi
 
         # Work related inputs
