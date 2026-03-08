@@ -95,7 +95,7 @@ clear_line () {
 
 strip_TODO_tasks () {
     for (( i=0; i < ${#TODO[@]}; i ++ )); do
-        stripped_task=$(echo "${TODO[i]}" | xargs -I _ printf '%s' _ )
+        local stripped_task=$(echo "${TODO[i]}" | xargs -I _ printf '%s' _ )
         TODO[i]="$stripped_task"
     done
 }
@@ -112,7 +112,7 @@ count_down () {
     # changes in refactor
     #   removing messages
     #
-    local secs_to_count_down=$(($1*SECS_IN_MINUTE))
+    local force_quit=false
     local printed_minutes=0
     local changed='f'
     local pomodoro_lines=0
@@ -126,10 +126,10 @@ count_down () {
     else
         SECONDS=0 
     fi
-    secs_to_count_down=$(((task_no+1)*$1*SECS_IN_MINUTE))
+    local secs_to_count_down=$(((task_no+1)*$1*SECS_IN_MINUTE))
     printf "%b Time spent is %s minutes" "$content" "$printed_minutes"
     while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
-        minutes=$(( SECONDS/SECS_IN_MINUTE ))
+        local minutes=$(( SECONDS/SECS_IN_MINUTE ))
         if [[ ${changed^^} == 'T' || $printed_minutes != "$minutes" ]]; then # updates screen after every minute, preventing stuttering
             printed_minutes=$minutes
             # +1 because this is the contents of the pomodoro and the context line with time spent
@@ -139,8 +139,11 @@ count_down () {
             printf "%b Time spent is %s minutes" "$content" "$printed_minutes"
             changed='f'
         fi
-        handle_countdown_input || break
+        handle_countdown_input || { force_quit=true; break; }
     done
+    if [[ $force_quit == true ]]; then
+        return 1
+    fi
 }
 
 view_content () {
@@ -168,12 +171,7 @@ handle_countdown_input () {
     elif [[ $POMODORO_STATE == "chime" ]]; then
         # Q stops chiming and moves to next state
         # C stops chiming and continues previous state
-        local next_state=$PREVIOUS_POMODORO_STATE
-        if [[ $PREVIOUS_POMODORO_STATE == "work" ]]; then
-            next_state="rest"
-        else
-            next_state="work"
-        fi
+        local next_state=$([[ $PREVIOUS_POMODORO_STATE == "work" ]] && echo "rest" || echo "work")
 
         if [[ ${input^^} = "Q" ]]; then
             POMODORO_STATE=$next_state
@@ -227,7 +225,7 @@ work_or_rest () {
     local task_no=0
     local current_state=$POMODORO_STATE
     while [[ $POMODORO_STATE == "$current_state" ]]; do
-        count_down "$1" "$task_no"
+        count_down "$1" "$task_no" || break
         PREVIOUS_POMODORO_STATE=$POMODORO_STATE
         POMODORO_STATE="chime"
         chiming_with_input
@@ -298,7 +296,8 @@ refresh_current_pomodoro_output () {
 }
 
 add_to_list() {
-    read -r -p $'\nAdd Tasks: ' tasks 
+    local tasks
+    read -r -p $'\nAdd Tasks: ' tasks
     if [[ -n $tasks ]]; then
         local temp_arr
         readarray -td',' temp_arr <<< "$tasks" # comma separated input
