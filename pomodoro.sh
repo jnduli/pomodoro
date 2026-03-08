@@ -147,11 +147,9 @@ view_content () {
     local content=""
     if [[ $POMODORO_STATE = "work" ]]; then
         local pomodoro=$(refresh_current_pomodoro_output)
-        pomodoro_lines=$(echo -en "$pomodoro" | wc -l)
         content=$(printf "\n%b\n  a-add task, d-do/undo task, c-cancel/uncancel task." "$pomodoro")
-    elif [[ $POMODORO_STATE = "rest" ]]; then 
-        pomodoro_lines=1
-        content=$(printf "\nResting: q-quit %s, , c-continue %s:" "$POMODORO_STATE" "$POMODORO_STATE") 
+    elif [[ $POMODORO_STATE = "rest" ]]; then
+        content=$(printf "\nResting: q-quit %s, , c-continue %s:" "$POMODORO_STATE" "$POMODORO_STATE")
     elif [[ $POMODORO_STATE == "pause" ]]; then
         content="\nPaused: p to unpause"
     elif [[ $POMODORO_STATE == "chime" ]]; then
@@ -250,19 +248,17 @@ chiming_with_input () {
     printf "%b" "$chiming_instructions"
     SECONDS=0
 
-    if [[ $FORCE_QUIT_WORK_REST != "true" ]]; then
-        local last_chime=-1
-        while [[ $POMODORO_STATE == "chime" ]]; do
-            if (( SECONDS % 3 == 0 && SECONDS != last_chime )); then # chime every 3 seconds
-                notify "$NOTIFICATION_TYPE"
-                last_chime=$SECONDS
-            fi
-            local duration=$SECONDS
-            printf "\nChiming duration: %s min %s sec" "$((duration / 60))" "$((duration % 60))"
-            handle_countdown_input
-            clear_line
-        done
-    fi
+    local last_chime=-1
+    while [[ $POMODORO_STATE == "chime" ]]; do
+        if (( SECONDS % 3 == 0 && SECONDS != last_chime )); then # chime every 3 seconds
+            notify "$NOTIFICATION_TYPE"
+            last_chime=$SECONDS
+        fi
+        local duration=$SECONDS
+        printf "\nChiming duration: %s min %s sec" "$((duration / 60))" "$((duration % 60))"
+        handle_countdown_input
+        clear_line
+    done
     clear_line "$(( pomodoro_lines ))"
 }
 
@@ -272,6 +268,7 @@ refresh_current_pomodoro_output () {
     local columns=$(tput cols)
 
     for (( i=0; i < ${#TODO[@]}; i ++ )); do
+        local local_output
         if [[ -v COMPLETED[$i] ]]; then
             local_output="$i: $green${TODO[i]}$clear"
         elif [[ -v ABANDONED[$i] ]]; then
@@ -303,6 +300,7 @@ refresh_current_pomodoro_output () {
 add_to_list() {
     read -r -p $'\nAdd Tasks: ' tasks 
     if [[ -n $tasks ]]; then
+        local temp_arr
         readarray -td',' temp_arr <<< "$tasks" # comma separated input
         TODO+=("${temp_arr[@]}")
         strip_TODO_tasks
@@ -310,32 +308,25 @@ add_to_list() {
     clear_line 2 # after input, new line is added
 }
 
-complete_task() { # rename to complete task
+toggle_task() {
+    local -n _arr=$1
+    local _val=$2
+    local task_index
     read -r -p $'\nTasks no: ' task_index
     if [[ -n $task_index ]]; then
-        [[ ${COMPLETED["$task_index"]+Y} ]] && unset 'COMPLETED["$task_index"]' || COMPLETED["$task_index"]="DONE"
+        [[ ${_arr[$task_index]+Y} ]] && unset "_arr[$task_index]" || _arr[$task_index]="$_val"
     fi
     clear_line 2 # after input, new line is added
 }
 
-cancel_task() {
-    read -r -p $'\nTasks no: ' task_index
-    if [[ -n $task_index ]]; then
-        [[ ${ABANDONED["$task_index"]+Y} ]] && unset 'ABANDONED["$task_index"]' || ABANDONED["$task_index"]="ABANDONED"
-    fi
-    clear_line 2 # after input, new line is added
-}
+complete_task() { toggle_task COMPLETED "DONE"; }
+cancel_task()   { toggle_task ABANDONED "ABANDONED"; }
 
 # Arguments:
 #   n : The current pomodoro number
 single_pomodoro_run () {
-    local message=""
-    if [[ $1 == 1 ]]; then
-        message="\nPlan is a list separated by a command i.e. task1,task2,task3\nPomodoro $1"
-    else
-        message="\nPomodoro $1"
-    fi
-    printf "%b" "$message"
+    printf "\nPomodoro %s" "$1"
+    [[ $1 == 1 ]] && printf "\nPlan is a list separated by a comma i.e. task1,task2,task3"
     add_to_list
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         dunstctl set-paused true
@@ -356,10 +347,7 @@ single_pomodoro_run () {
 }
 
 rename_window_in_tmux () {
-    in_tmux=${TMUX:-""}
-    if [[ -n $in_tmux ]]; then
-        tmux rename-window "pomodoro"
-    fi
+    [[ -n ${TMUX:-} ]] && tmux rename-window "pomodoro"
 }
 
 
