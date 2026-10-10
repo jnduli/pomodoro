@@ -1,4 +1,4 @@
-##!/usr/bin/env bash
+#!/usr/bin/env bash
 #
 # Runs pomodoro with specified work duration and rest
 #
@@ -21,6 +21,7 @@ REST=5
 SECS_IN_MINUTE=60
 NOTIFICATION_TYPE="sound" # can also be dunst
 DISABLE_NOTIFICATIONS_WHILE_WORKING=0 # can be 0 or 1
+NO_TASKS=0 # can be 0 or 1, 1 skips entering and tracking tasks
 
 
 # Loading values from configuration file stored in ~/.config/pomodoro/config.sh
@@ -33,6 +34,10 @@ fi
 TODO=()
 declare -A COMPLETED
 declare -A ABANDONED
+
+# Pipe that never receives data, reading from it with a timeout sleeps without
+# forking or using cpu
+exec {IDLE_FD}<> <(:)
 
 # can be: work, rest, chime, pause
 POMODORO_STATE="work"
@@ -148,7 +153,9 @@ count_down () {
 
 view_content () {
     local content=""
-    if [[ $POMODORO_STATE = "work" ]]; then
+    if [[ $POMODORO_STATE = "work" && $NO_TASKS == 1 ]]; then
+        content=$(printf "\nWorking: q-quit %s, p-pause:" "$POMODORO_STATE")
+    elif [[ $POMODORO_STATE = "work" ]]; then
         local pomodoro=$(refresh_current_pomodoro_output)
         content=$(printf "\n%b\n  a-add task, d-do/undo task, c-cancel/uncancel task." "$pomodoro")
     elif [[ $POMODORO_STATE = "rest" ]]; then
@@ -162,8 +169,10 @@ view_content () {
 }
 
 handle_countdown_input () {
-    local input
-    read -r -t 0.25 -N 1 input || true # no input fails with non zero status
+    local input status=0
+    read -r -t 0.25 -N 1 input || status=$? # >128 on timeout, 1 on EOF
+    # on EOF (stdin not a terminal) read returns immediately, wait to avoid busy looping
+    (( status > 0 && status <= 128 )) && { read -r -t 0.25 -u "$IDLE_FD" || true; }
     if [[ $POMODORO_STATE == "pause" ]]; then
         if [[ ${input^^} = 'P' ]]; then
             POMODORO_STATE=$PREVIOUS_POMODORO_STATE
@@ -191,16 +200,18 @@ handle_countdown_input () {
         fi
 
         # Work related inputs
-        if [[ ${input^^} == "A" && $POMODORO_STATE == "work" ]]; then
-            # TODO: change inputs to have a time limit too so that it doesn't hang here
-            add_to_list
-            changed='t'
-        elif [[ ${input^^} == "D" && $POMODORO_STATE == "work" ]]; then
-            complete_task
-            changed='t'
-        elif [[ ${input^^} == "C" && $POMODORO_STATE == "work" ]]; then
-            cancel_task
-            changed='t'
+        if [[ $POMODORO_STATE == "work" && $NO_TASKS == 0 ]]; then
+            if [[ ${input^^} == "A" ]]; then
+                # TODO: change inputs to have a time limit too so that it doesn't hang here
+                add_to_list
+                changed='t'
+            elif [[ ${input^^} == "D" ]]; then
+                complete_task
+                changed='t'
+            elif [[ ${input^^} == "C" ]]; then
+                cancel_task
+                changed='t'
+            fi
         fi
     fi
 }
@@ -325,8 +336,10 @@ cancel_task()   { toggle_task ABANDONED "ABANDONED"; }
 #   n : The current pomodoro number
 single_pomodoro_run () {
     printf "\nPomodoro %s" "$1"
-    [[ $1 == 1 ]] && printf "\nPlan is a list separated by a comma i.e. task1,task2,task3"
-    add_to_list
+    if [[ $NO_TASKS == 0 ]]; then
+        [[ $1 == 1 ]] && printf "\nPlan is a list separated by a comma i.e. task1,task2,task3"
+        add_to_list
+    fi
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         dunstctl set-paused true
     fi
@@ -369,6 +382,7 @@ Flags:
 -w, --work <arg>: Set time for work in minutes
 -r, --rest <arg>: Set time for rest in minutes
 --no-sound: don't play the sound to notify
+--no-tasks: don't prompt for or track tasks, only run the timer
 --debug-mode: debug mode (The time counter uses seconds instead of minutes)
 
 Advanced configuration:
@@ -379,6 +393,7 @@ WORK=25 # time to work in minutes
 REST=5 # time to rest in minutes
 NOTIFICATION_TYPE="sound" # can also be dunst
 DISABLE_NOTIFICATIONS_WHILE_WORKING=1 # can be 0 or 1
+NO_TASKS=0 # can be 0 or 1, 1 skips entering and tracking tasks
 EOF
 }
 
@@ -402,6 +417,10 @@ options () {
                 ;;
             --no-sound)
                 NOTIFICATION_TYPE="dunst"
+                shift
+                ;;
+            --no-tasks)
+                NO_TASKS=1
                 shift
                 ;;
             --debug-mode)
