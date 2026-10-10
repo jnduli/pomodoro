@@ -24,7 +24,7 @@ DISABLE_NOTIFICATIONS_WHILE_WORKING=0 # can be 0 or 1
 NO_TASKS=0 # can be 0 or 1, 1 skips entering and tracking tasks
 
 
-# Loading values from configuration file stored in ~/.config/pomodoro/config.sh
+# Loading values from configuration file stored in ~/.config/pomodoro/config
 if [ -f "$CONFIG_FILE" ]; then
     # shellcheck source=/dev/null
     source "${CONFIG_FILE}"
@@ -50,22 +50,26 @@ readonly green='\033[0;32m' # green for done tasks
 readonly strikethrough='\033[0;9m' # strike through abandoned tasks
 readonly clear='\033[0m' # clear formatting
 
-PREREQUISITES=("paplay" "notify-send" "dunstctl" "tput")
+# Exits if a command needed by the current configuration isn't installed
+check_prerequisites () {
+    local -A install_hints=(
+        [paplay]="Try to install pulseaudio"
+        [notify-send]="Try to install libnotify"
+        [dunstctl]="Try to install dunst"
+        [tput]="Try to install ncurses"
+    )
+    local required=("tput")
+    [[ $NOTIFICATION_TYPE == "sound" ]] && required+=("paplay") || required+=("notify-send")
+    [[ $DISABLE_NOTIFICATIONS_WHILE_WORKING == 1 ]] && required+=("dunstctl")
 
-for command in "${PREREQUISITES[@]}"; do
-    if ! command -v "$command" &> /dev/null; then
-        helper_context=""
-        if [[ "$command" = "paplay" ]]; then
-            helper_context="Try to install pulseaudio"
-        elif [[ "$command" = "notify-send" ]]; then
-            helper_context="Try to install libnotify"
-        elif [[ "$command" = "tput" ]]; then
-            helper_context="Try to install ncurses"
+    local command
+    for command in "${required[@]}"; do
+        if ! command -v "$command" &> /dev/null; then
+            printf "Command: %s is not found, please install it. %s\n" "$command" "${install_hints[$command]}"
+            exit 1
         fi
-        printf "Command: %s is not found, please install it. %s\n" "$command" "$helper_context"
-        exit 1
-    fi
-done
+    done
+}
 
 # Plays or uses notify-send to send notification
 # Arguments
@@ -424,6 +428,7 @@ restore_terminal () {
 
 main () {
     options "$@"
+    check_prerequisites
     # Ensure clean terminal state however the script exits, even mid-render
     trap restore_terminal EXIT
     trap 'exit 0' INT TERM
