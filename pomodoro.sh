@@ -175,7 +175,7 @@ state_view () {
     elif [[ $POMODORO_STATE = "work" ]]; then
         printf "%s\n  a-add task, d-do/undo task, c-cancel/uncancel task." "$(task_list_view)"
     elif [[ $POMODORO_STATE = "rest" ]]; then
-        printf "Resting: q-quit %s, , c-continue %s:" "$POMODORO_STATE" "$POMODORO_STATE"
+        printf "Resting: q-quit %s, p-pause:" "$POMODORO_STATE"
     elif [[ $POMODORO_STATE == "pause" ]]; then
         printf "Paused: p to unpause"
     elif [[ $POMODORO_STATE == "chime" ]]; then
