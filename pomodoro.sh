@@ -42,6 +42,8 @@ exec {IDLE_FD}<> <(:)
 # can be: work, rest, chime, pause
 POMODORO_STATE="work"
 PREVIOUS_POMODORO_STATE="rest"
+# Set to 1 when tasks change so count_down redraws before the next minute
+VIEW_CHANGED=0
 
 # Colors used in display
 readonly green='\033[0;32m' # green for done tasks
@@ -141,36 +143,29 @@ strip_TODO_tasks () {
     done
 }
 
-# Counts down from time t until 0 minutes
+# Counts time spent from start until end, showing it in minutes
 # Globals:
 #   SECS_IN_MINUTE
 #   SECONDS
+#   VIEW_CHANGED
 # Arguments:
-#   time in minutes ($1)
-#   task_no ($2): the number of times this work/rest has been repeated
+#   start ($1): seconds already spent
+#   end ($2): seconds to stop at
+# Returns
+#   1 if quit before the end
 count_down () {
     # TODO: this should behave differently depending of its work or rest
-    # changes in refactor
-    #   removing messages
-    #
-    local force_quit=false
     local printed_minutes=-1
-    local changed='f'
-    local task_no=$2
-    SECONDS=$((task_no*$1*SECS_IN_MINUTE))
-    local secs_to_count_down=$(((task_no+1)*$1*SECS_IN_MINUTE))
-    while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
+    SECONDS=$1
+    while (( SECONDS <= $2 )); do
         local minutes=$(( SECONDS/SECS_IN_MINUTE ))
-        if [[ ${changed^^} == 'T' || $printed_minutes != "$minutes" ]]; then # updates screen after every minute, preventing stuttering
+        if (( VIEW_CHANGED || printed_minutes != minutes )); then # updates screen after every minute, preventing stuttering
             printed_minutes=$minutes
             render "$(state_view) Time spent is $printed_minutes minutes"
-            changed='f'
+            VIEW_CHANGED=0
         fi
-        handle_countdown_input || { force_quit=true; break; }
+        handle_countdown_input || return 1
     done
-    if [[ $force_quit == true ]]; then
-        return 1
-    fi
 }
 
 # Prints the text for the current POMODORO_STATE, for render to draw
@@ -178,7 +173,7 @@ state_view () {
     if [[ $POMODORO_STATE = "work" && $NO_TASKS == 1 ]]; then
         printf "Working: q-quit %s, p-pause:" "$POMODORO_STATE"
     elif [[ $POMODORO_STATE = "work" ]]; then
-        printf "%b\n  a-add task, d-do/undo task, c-cancel/uncancel task." "$(refresh_current_pomodoro_output)"
+        printf "%s\n  a-add task, d-do/undo task, c-cancel/uncancel task." "$(task_list_view)"
     elif [[ $POMODORO_STATE = "rest" ]]; then
         printf "Resting: q-quit %s, , c-continue %s:" "$POMODORO_STATE" "$POMODORO_STATE"
     elif [[ $POMODORO_STATE == "pause" ]]; then
@@ -193,47 +188,31 @@ handle_countdown_input () {
     read -r -t 0.25 -N 1 input || status=$? # >128 on timeout, 1 on EOF
     # on EOF (stdin not a terminal) read returns immediately, wait to avoid busy looping
     (( status > 0 && status <= 128 )) && { read -r -t 0.25 -u "$IDLE_FD" || true; }
-    if [[ $POMODORO_STATE == "pause" ]]; then
-        if [[ ${input^^} = 'P' ]]; then
+    case "$POMODORO_STATE:${input^^}" in
+        pause:P)
             POMODORO_STATE=$PREVIOUS_POMODORO_STATE
-        fi
-    elif [[ $POMODORO_STATE == "chime" ]]; then
-        # Q stops chiming and moves to next state
-        # C stops chiming and continues previous state
-        local next_state=$([[ $PREVIOUS_POMODORO_STATE == "work" ]] && echo "rest" || echo "work")
-
-        if [[ ${input^^} = "Q" ]]; then
-            POMODORO_STATE=$next_state
-        elif [[ ${input^^} = "C" ]]; then
+            ;;
+        chime:Q) # stops chiming and moves to next state
+            [[ $PREVIOUS_POMODORO_STATE == "work" ]] && POMODORO_STATE="rest" || POMODORO_STATE="work"
+            ;;
+        chime:C) # stops chiming and continues previous state
             POMODORO_STATE=$PREVIOUS_POMODORO_STATE
-        fi
-    else
-        # Rest and work related inputs
-        if [[ ${input^^} = "P" ]]; then
-            local pausedtime=$SECONDS
+            ;;
+        work:P|rest:P)
+            local paused_time=$SECONDS
             PREVIOUS_POMODORO_STATE=$POMODORO_STATE
             POMODORO_STATE="pause"
             pause_forever
-            SECONDS=$pausedtime
-        elif [[ ${input^^} == "Q" ]]; then
+            SECONDS=$paused_time
+            ;;
+        work:Q|rest:Q)
             return 1
-        fi
-
-        # Work related inputs
-        if [[ $POMODORO_STATE == "work" && $NO_TASKS == 0 ]]; then
-            if [[ ${input^^} == "A" ]]; then
-                # TODO: change inputs to have a time limit too so that it doesn't hang here
-                add_to_list
-                changed='t'
-            elif [[ ${input^^} == "D" ]]; then
-                complete_task
-                changed='t'
-            elif [[ ${input^^} == "C" ]]; then
-                cancel_task
-                changed='t'
-            fi
-        fi
-    fi
+            ;;
+        # TODO: change inputs to have a time limit too so that it doesn't hang here
+        work:A) (( NO_TASKS )) || add_to_list ;;
+        work:D) (( NO_TASKS )) || complete_task ;;
+        work:C) (( NO_TASKS )) || cancel_task ;;
+    esac
 }
 
 
@@ -252,14 +231,15 @@ pause_forever () {
 # Arguments:
 #   time in minutes ($1)
 work_or_rest () {
-    local task_no=0
+    local length=$(( $1 * SECS_IN_MINUTE ))
+    local spent=0
     local current_state=$POMODORO_STATE
-    while [[ $POMODORO_STATE == "$current_state" ]]; do
-        count_down "$1" "$task_no" || break
+    while [[ $POMODORO_STATE == "$current_state" ]]; do # continuing after the chime adds another length
+        count_down "$spent" $(( spent + length )) || break
+        spent=$(( spent + length ))
         PREVIOUS_POMODORO_STATE=$POMODORO_STATE
         POMODORO_STATE="chime"
         chiming_with_input
-        task_no=$(( task_no + 1))
     done
     render_commit
 }
@@ -291,39 +271,15 @@ chiming_with_input () {
     render "$base"
 }
 
-refresh_current_pomodoro_output () {
-    local output=("")
-    local non_color_last_line=""
-    local columns=$(tput cols)
-
-    for (( i=0; i < ${#TODO[@]}; i ++ )); do
-        local local_output
-        if [[ -v COMPLETED[$i] ]]; then
-            local_output="$i: $green${TODO[i]}$clear"
-        elif [[ -v ABANDONED[$i] ]]; then
-            local_output="$i: $strikethrough${TODO[i]}$clear"
-        else
-            local_output="$i: ${TODO[i]}"
-        fi
-        local non_color_output="$non_color_last_line, $i: ${TODO[i]}"
-        if [[ ${#non_color_output}+2 -gt $columns ]]; then # +2 since this is the number of spaces we indent with
-            output+=("$local_output")
-            non_color_last_line="$i: ${TODO[i]}"
-        else
-            if [[ ${output[-1]} == "" ]]; then
-                output[-1]="$local_output"
-            else
-                output[-1]="${output[-1]}, $local_output"
-            fi
-            non_color_last_line="$non_color_output"
-        fi
+# Prints the tasks one per line, done ones green and abandoned ones struck through
+task_list_view () {
+    local i style
+    for i in "${!TODO[@]}"; do
+        style=''
+        [[ -v ABANDONED[$i] ]] && style=$strikethrough
+        [[ -v COMPLETED[$i] ]] && style=$green
+        printf '  %s: %b%s%b\n' "$i" "$style" "${TODO[i]}" "$clear"
     done
-
-    local pomodoro_content="  ${output[0]}"
-    for (( i=1; i<${#output[@]}; i++)) do
-        pomodoro_content="$pomodoro_content\n  ${output[i]}" # 2spaces for indent
-    done
-    echo "$pomodoro_content"
 }
 
 add_to_list() {
@@ -334,6 +290,7 @@ add_to_list() {
         readarray -td',' temp_arr <<< "$tasks" # comma separated input
         TODO+=("${temp_arr[@]}")
         strip_TODO_tasks
+        VIEW_CHANGED=1
     fi
 }
 
@@ -344,6 +301,7 @@ toggle_task() {
     ask task_index 'Tasks no: '
     if [[ -n $task_index ]]; then
         [[ ${_arr[$task_index]+Y} ]] && unset "_arr[$task_index]" || _arr[$task_index]="$_val"
+        VIEW_CHANGED=1
     fi
 }
 
