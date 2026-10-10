@@ -78,24 +78,60 @@ notify () {
     if [[ $i3_lock_process == "0" ]]; then
         if [[ ${notify_type} == "sound" ]]; then
             local paplay_volume=${VOLUME:-20000}
-            paplay --volume="${paplay_volume}" "$SOUNDFILE"
+            paplay --volume="${paplay_volume}" "$SOUNDFILE" & # in background so keys stay responsive
         else
             notify-send --app-name="pomodoro" "Check pomodoro, either break or work has ended"
         fi
     fi
 }
 
-# Deletes n lines and places cursor on previous line 
-# Arg: n (Optional, defaults to 1): No of lines to clear
-clear_line () {
-    local columns=$(tput cols)
-    local lines=${1:-1} # defaults to 1
-    while (( lines > 0 )); do 
-        printf "\033[1A"
-        tput cuf "$columns"
-        printf "\033[0J"
-        lines=$(( lines-1 ))
-    done
+# Text drawn by the last render, the next render replaces it
+RENDERED_CONTENT=''
+# Lines between the cursor and the first line of RENDERED_CONTENT
+RENDERED_LINES=0
+
+# Redraws the live area of the screen, replacing what the previous render drew.
+# Line wrapping is off while drawing so each line takes exactly one row
+# Arguments:
+#   content ($1): text to draw, can span multiple lines
+render () {
+    (( RENDERED_LINES > 0 )) && printf '\033[%dA' "$RENDERED_LINES"
+    printf '\r\033[J\033[?7l%s\033[?7h' "$1"
+    local newlines=${1//[!$'\n']/}
+    RENDERED_LINES=${#newlines}
+    RENDERED_CONTENT=$1
+}
+
+# Leaves what was rendered on screen, the next render starts below it
+render_commit () {
+    [[ -n $RENDERED_CONTENT ]] && printf '\n'
+    RENDERED_CONTENT=''
+    RENDERED_LINES=0
+}
+
+# Turns terminal echo on or off, echo is off outside prompts so stray keys aren't printed
+# Arguments:
+#   on|off ($1)
+set_echo () {
+    [[ -t 0 ]] || return 0
+    [[ $1 == on ]] && stty echo || stty -echo
+}
+
+# Reads a line of input below the rendered area, the next render clears the prompt
+# Arguments:
+#   variable to store the answer in ($1)
+#   prompt ($2)
+ask () {
+    local -n _answer=$1
+    set_echo on
+    if [[ -n $RENDERED_CONTENT ]]; then
+        read -r -p $'\n'"$2" _answer
+        RENDERED_LINES=$(( RENDERED_LINES + 2 ))
+    else
+        read -r -p "$2" _answer
+        RENDERED_LINES=$(( RENDERED_LINES + 1 ))
+    fi
+    set_echo off
 }
 
 strip_TODO_tasks () {
@@ -118,30 +154,16 @@ count_down () {
     #   removing messages
     #
     local force_quit=false
-    local printed_minutes=0
+    local printed_minutes=-1
     local changed='f'
-    local pomodoro_lines=0
     local task_no=$2
-    local content
-    content=$(view_content)
-    pomodoro_lines=$(echo -en "$content" | wc -l)
-    if [[ $task_no -gt 0 ]]; then
-        clear_line $(( pomodoro_lines ))
-        SECONDS=$((task_no*$1*SECS_IN_MINUTE))
-    else
-        SECONDS=0 
-    fi
+    SECONDS=$((task_no*$1*SECS_IN_MINUTE))
     local secs_to_count_down=$(((task_no+1)*$1*SECS_IN_MINUTE))
-    printf "%b Time spent is %s minutes" "$content" "$printed_minutes"
     while (( SECONDS <= secs_to_count_down )); do    # Loop until interval has elapsed.
         local minutes=$(( SECONDS/SECS_IN_MINUTE ))
         if [[ ${changed^^} == 'T' || $printed_minutes != "$minutes" ]]; then # updates screen after every minute, preventing stuttering
             printed_minutes=$minutes
-            # +1 because this is the contents of the pomodoro and the context line with time spent
-            clear_line $(( pomodoro_lines ))
-            content=$(view_content)
-            pomodoro_lines=$(echo -en "$content" | wc -l)
-            printf "%b Time spent is %s minutes" "$content" "$printed_minutes"
+            render "$(state_view) Time spent is $printed_minutes minutes"
             changed='f'
         fi
         handle_countdown_input || { force_quit=true; break; }
@@ -151,21 +173,19 @@ count_down () {
     fi
 }
 
-view_content () {
-    local content=""
+# Prints the text for the current POMODORO_STATE, for render to draw
+state_view () {
     if [[ $POMODORO_STATE = "work" && $NO_TASKS == 1 ]]; then
-        content=$(printf "\nWorking: q-quit %s, p-pause:" "$POMODORO_STATE")
+        printf "Working: q-quit %s, p-pause:" "$POMODORO_STATE"
     elif [[ $POMODORO_STATE = "work" ]]; then
-        local pomodoro=$(refresh_current_pomodoro_output)
-        content=$(printf "\n%b\n  a-add task, d-do/undo task, c-cancel/uncancel task." "$pomodoro")
+        printf "%b\n  a-add task, d-do/undo task, c-cancel/uncancel task." "$(refresh_current_pomodoro_output)"
     elif [[ $POMODORO_STATE = "rest" ]]; then
-        content=$(printf "\nResting: q-quit %s, , c-continue %s:" "$POMODORO_STATE" "$POMODORO_STATE")
+        printf "Resting: q-quit %s, , c-continue %s:" "$POMODORO_STATE" "$POMODORO_STATE"
     elif [[ $POMODORO_STATE == "pause" ]]; then
-        content="\nPaused: p to unpause"
+        printf "Paused: p to unpause"
     elif [[ $POMODORO_STATE == "chime" ]]; then
-        content="\nChiming: q-stop chiming, c-continue with previous state"
+        printf "Chiming: q-stop chiming, c-continue with previous state"
     fi
-    printf '%s\n' "$content"
 }
 
 handle_countdown_input () {
@@ -217,15 +237,14 @@ handle_countdown_input () {
 }
 
 
+# Shows pause instructions below the current view until unpaused
 pause_forever () {
-    local pause_instructions=$(view_content)
-    local pomodoro_lines=$(echo -en "$pause_instructions" | wc -l)
+    local base=$RENDERED_CONTENT
+    render "$base"$'\n'"$(state_view)"
     while [[ $POMODORO_STATE == "pause" ]]; do
-        printf "%b" "$pause_instructions"
         handle_countdown_input
-        clear_line "$(( pomodoro_lines ))"
     done
-    clear_line "$(( pomodoro_lines ))" 
+    render "$base"
 }
 
 
@@ -242,33 +261,34 @@ work_or_rest () {
         chiming_with_input
         task_no=$(( task_no + 1))
     done
+    render_commit
 }
 
-# Plays notification until key is pressed
+# Plays notification until key is pressed, showing chime instructions below
+# the current view
 # Globals:
 #   SECONDS
-# Argumenets
-# $1 variable to set to return type
-# Returns
-#   0 for True, 1 for False
 chiming_with_input () {
-    local chiming_instructions=$(view_content)
-    local pomodoro_lines=$(echo -en "$chiming_instructions" | wc -l)
-    printf "%b" "$chiming_instructions"
+    local base=$RENDERED_CONTENT
+    local instructions
+    instructions=$(state_view)
     SECONDS=0
 
     local last_chime=-1
+    local shown_duration=-1
     while [[ $POMODORO_STATE == "chime" ]]; do
-        if (( SECONDS % 3 == 0 && SECONDS != last_chime )); then # chime every 3 seconds
-            notify "$NOTIFICATION_TYPE"
-            last_chime=$SECONDS
-        fi
         local duration=$SECONDS
-        printf "\nChiming duration: %s min %s sec" "$((duration / 60))" "$((duration % 60))"
+        if (( duration != shown_duration )); then # drawn before notify since playing sound blocks
+            render "$base"$'\n'"$instructions"$'\n'"Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
+            shown_duration=$duration
+        fi
+        if (( duration % 3 == 0 && duration != last_chime )); then # chime every 3 seconds
+            notify "$NOTIFICATION_TYPE"
+            last_chime=$duration
+        fi
         handle_countdown_input
-        clear_line
     done
-    clear_line "$(( pomodoro_lines ))"
+    render "$base"
 }
 
 refresh_current_pomodoro_output () {
@@ -308,25 +328,23 @@ refresh_current_pomodoro_output () {
 
 add_to_list() {
     local tasks
-    read -r -p $'\nAdd Tasks: ' tasks
+    ask tasks 'Add Tasks: '
     if [[ -n $tasks ]]; then
         local temp_arr
         readarray -td',' temp_arr <<< "$tasks" # comma separated input
         TODO+=("${temp_arr[@]}")
         strip_TODO_tasks
     fi
-    clear_line 2 # after input, new line is added
 }
 
 toggle_task() {
     local -n _arr=$1
     local _val=$2
     local task_index
-    read -r -p $'\nTasks no: ' task_index
+    ask task_index 'Tasks no: '
     if [[ -n $task_index ]]; then
         [[ ${_arr[$task_index]+Y} ]] && unset "_arr[$task_index]" || _arr[$task_index]="$_val"
     fi
-    clear_line 2 # after input, new line is added
 }
 
 complete_task() { toggle_task COMPLETED "DONE"; }
@@ -335,9 +353,9 @@ cancel_task()   { toggle_task ABANDONED "ABANDONED"; }
 # Arguments:
 #   n : The current pomodoro number
 single_pomodoro_run () {
-    printf "\nPomodoro %s" "$1"
+    printf "Pomodoro %s\n" "$1"
     if [[ $NO_TASKS == 0 ]]; then
-        [[ $1 == 1 ]] && printf "\nPlan is a list separated by a comma i.e. task1,task2,task3"
+        [[ $1 == 1 ]] && printf "Plan is a list separated by a comma i.e. task1,task2,task3\n"
         add_to_list
     fi
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
@@ -440,12 +458,20 @@ options () {
     done
 }
 
+restore_terminal () {
+    printf "\n\033[?7h"
+    tput cnorm
+    set_echo on
+}
+
 main () {
-    # Ensure clean terminal state if the script is interrupted mid-render
-    trap 'printf "\n"; tput cnorm; exit 0' INT TERM
     options "$@"
+    # Ensure clean terminal state however the script exits, even mid-render
+    trap restore_terminal EXIT
+    trap 'exit 0' INT TERM
+    set_echo off
     rename_window_in_tmux
-    printf "Starting pomodoro, work=$WORK and rest=$REST minutes"
+    printf "Starting pomodoro, work=%s and rest=%s minutes\n" "$WORK" "$REST"
     local pomodoro_count=1
     while true; do
         single_pomodoro_run $pomodoro_count
