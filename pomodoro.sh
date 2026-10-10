@@ -42,13 +42,27 @@ exec {IDLE_FD}<> <(:)
 # can be: work, rest, chime, pause
 POMODORO_STATE="work"
 PREVIOUS_POMODORO_STATE="rest"
-# Set to 1 when tasks change so count_down redraws before the next minute
+# Set to 1 when tasks change so count_down redraws before the next second
 VIEW_CHANGED=0
+# Progress of the current work or rest in seconds, kept while paused or chiming
+COUNT_START=0
+COUNT_END=0
+COUNT_NOW=0
+POMODORO_NUMBER=0
+COMPLETED_POMODOROS=0
+# Last title set by set_title, so tmux is only called when it changes
+SHOWN_TITLE=''
 
 # Colors used in display
-readonly green='\033[0;32m' # green for done tasks
-readonly strikethrough='\033[0;9m' # strike through abandoned tasks
-readonly clear='\033[0m' # clear formatting
+readonly red=$'\033[31m' # work
+readonly green=$'\033[32m' # rest and done tasks
+readonly yellow=$'\033[33m' # pause
+readonly label=$'\033[1;7m' # bold and inverted, for the state label
+readonly blink=$'\033[5m' # chiming
+readonly dim=$'\033[2m' # hints and secondary text
+readonly strikethrough=$'\033[9m' # strike through abandoned tasks
+readonly clear=$'\033[0m' # clear formatting
+readonly BAR_WIDTH=30
 
 # Exits if a command needed by the current configuration isn't installed
 check_prerequisites () {
@@ -91,29 +105,14 @@ notify () {
     fi
 }
 
-# Text drawn by the last render, the next render replaces it
-RENDERED_CONTENT=''
-# Lines between the cursor and the first line of RENDERED_CONTENT
-RENDERED_LINES=0
-
-# Redraws the live area of the screen, replacing what the previous render drew.
-# Line wrapping is off while drawing so each line takes exactly one row
+# Draws content over the whole screen. It overwrites the previous frame, clearing
+# the rest of each line, instead of clearing the screen first so it doesn't flicker
 # Arguments:
 #   content ($1): text to draw, can span multiple lines
 render () {
-    (( RENDERED_LINES > 0 )) && printf '\033[%dA' "$RENDERED_LINES"
-    printf '\r\033[J\033[?7l%s\033[?7h' "$1"
-    local newlines=${1//[!$'\n']/}
-    RENDERED_LINES=${#newlines}
-    RENDERED_CONTENT=$1
+    printf '\033[H%s\033[K\033[J' "${1//$'\n'/$'\033[K\n'}"
 }
 
-# Leaves what was rendered on screen, the next render starts below it
-render_commit () {
-    [[ -n $RENDERED_CONTENT ]] && printf '\n'
-    RENDERED_CONTENT=''
-    RENDERED_LINES=0
-}
 
 # Turns terminal echo on or off, echo is off outside prompts so stray keys aren't printed
 # Arguments:
@@ -123,34 +122,24 @@ set_echo () {
     [[ $1 == on ]] && stty echo || stty -echo
 }
 
-# Reads a line of input below the rendered area, the next render clears the prompt
+# Reads a line of input below the screen, the next render clears the prompt
 # Arguments:
 #   variable to store the answer in ($1)
 #   prompt ($2)
 ask () {
     local -n _answer=$1
     set_echo on
-    if [[ -n $RENDERED_CONTENT ]]; then
-        read -r -p $'\n'"$2" _answer
-        RENDERED_LINES=$(( RENDERED_LINES + 2 ))
-    else
-        read -r -p "$2" _answer
-        RENDERED_LINES=$(( RENDERED_LINES + 1 ))
-    fi
+    printf '\033[?25h\033[?7h' # show cursor and wrap long input while typing
+    read -r -p $'\n\n  '"$2" _answer
+    printf '\033[?25l\033[?7l'
     set_echo off
+    VIEW_CHANGED=1
 }
 
-strip_TODO_tasks () {
-    for (( i=0; i < ${#TODO[@]}; i ++ )); do
-        local stripped_task=$(echo "${TODO[i]}" | xargs -I _ printf '%s' _ )
-        TODO[i]="$stripped_task"
-    done
-}
-
-# Counts time spent from start until end, showing it in minutes
+# Counts time spent from start until end, redrawing the screen every second
 # Globals:
-#   SECS_IN_MINUTE
 #   SECONDS
+#   COUNT_START, COUNT_END, COUNT_NOW
 #   VIEW_CHANGED
 # Arguments:
 #   start ($1): seconds already spent
@@ -159,32 +148,68 @@ strip_TODO_tasks () {
 #   1 if quit before the end
 count_down () {
     # TODO: this should behave differently depending of its work or rest
-    local printed_minutes=-1
+    COUNT_START=$1
+    COUNT_END=$2
     SECONDS=$1
+    local shown=-1
+    local icon='🍅'
+    [[ $POMODORO_STATE == rest ]] && icon='☕'
     while (( SECONDS <= $2 )); do
-        local minutes=$(( SECONDS/SECS_IN_MINUTE ))
-        if (( VIEW_CHANGED || printed_minutes != minutes )); then # updates screen after every minute, preventing stuttering
-            printed_minutes=$minutes
-            render "$(state_view) Time spent is $printed_minutes minutes"
+        COUNT_NOW=$(( SECONDS < $2 ? SECONDS : $2 )) # SECONDS can tick past the end after the check
+        if (( VIEW_CHANGED || shown != COUNT_NOW )); then
+            render "$(screen_view)"
+            set_title "$icon $(( (COUNT_END - COUNT_NOW + 59) / 60 ))m"
+            shown=$COUNT_NOW
             VIEW_CHANGED=0
         fi
         handle_countdown_input || return 1
     done
 }
 
-# Prints the text for the current POMODORO_STATE, for render to draw
-state_view () {
-    if [[ $POMODORO_STATE = "work" && $NO_TASKS == 1 ]]; then
-        printf "Working: q-quit %s, p-pause:" "$POMODORO_STATE"
-    elif [[ $POMODORO_STATE = "work" ]]; then
-        printf "%s\n  a-add task, d-do/undo task, c-cancel/uncancel task." "$(task_list_view)"
-    elif [[ $POMODORO_STATE = "rest" ]]; then
-        printf "Resting: q-quit %s, p-pause:" "$POMODORO_STATE"
-    elif [[ $POMODORO_STATE == "pause" ]]; then
-        printf "Paused: p to unpause"
-    elif [[ $POMODORO_STATE == "chime" ]]; then
-        printf "Chiming: q-stop chiming, c-continue with previous state"
+# Prints the whole screen for the current POMODORO_STATE, for render to draw
+screen_view () {
+    local timed_state=$POMODORO_STATE # the work or rest being counted, also while paused or chiming
+    [[ $timed_state == pause || $timed_state == chime ]] && timed_state=$PREVIOUS_POMODORO_STATE
+
+    local color title hints
+    case $POMODORO_STATE:$timed_state in
+        work:*)     color=$red    title="WORK"              hints="[p] pause  [q] end work" ;;
+        rest:*)     color=$green  title="BREAK"             hints="[p] pause  [q] end break" ;;
+        pause:*)    color=$yellow title="PAUSED"            hints="[p] resume" ;;
+        chime:work) color=$red    title="WORK · TIME'S UP"  hints="[q] start break  [c] keep working" ;;
+        chime:rest) color=$green  title="BREAK · TIME'S UP" hints="[q] start work  [c] keep resting" ;;
+    esac
+    [[ $POMODORO_STATE == work && $NO_TASKS == 0 ]] && hints+="  [a] add  [d] done  [c] cancel"
+    local label_style=$color$label
+    [[ $POMODORO_STATE == chime ]] && label_style+=$blink
+
+    local tally
+    printf -v tally '%*s' "$COMPLETED_POMODOROS" ''
+    printf '\n  🍅 Pomodoro %s  %s %s %s  %s%s%s\n\n' "$POMODORO_NUMBER" "$label_style" "$title" "$clear" "$green" "${tally// /●}" "$clear"
+    progress_view "$color"
+    if [[ $POMODORO_STATE == chime ]]; then
+        printf '  ringing for %d:%02d\n' $(( SECONDS / 60 )) $(( SECONDS % 60 ))
     fi
+    if [[ $timed_state == work && $NO_TASKS == 0 ]]; then
+        printf '\n'
+        task_list_view
+    fi
+    printf '\n  %s%s%s' "$dim" "$hints" "$clear"
+}
+
+# Prints the progress bar and time left of the current work or rest
+# Arguments:
+#   color ($1): color of the filled part of the bar
+progress_view () {
+    local length=$(( COUNT_END - COUNT_START ))
+    local filled=$BAR_WIDTH
+    (( length > 0 )) && filled=$(( (COUNT_NOW - COUNT_START) * BAR_WIDTH / length ))
+    local left=$(( COUNT_END - COUNT_NOW ))
+    local bar empty
+    printf -v bar '%*s' "$filled" ''
+    printf -v empty '%*s' $(( BAR_WIDTH - filled )) ''
+    printf '  %s%s%s%s%s' "$1" "${bar// /█}" "$dim" "${empty// /░}" "$clear"
+    printf '  %02d:%02d left  %s%s min spent%s\n' $(( left / 60 )) $(( left % 60 )) "$dim" $(( COUNT_NOW / SECS_IN_MINUTE )) "$clear"
 }
 
 handle_countdown_input () {
@@ -220,14 +245,13 @@ handle_countdown_input () {
 }
 
 
-# Shows pause instructions below the current view until unpaused
+# Shows the paused screen until unpaused
 pause_forever () {
-    local base=$RENDERED_CONTENT
-    render "$base"$'\n'"$(state_view)"
+    render "$(screen_view)"
     while [[ $POMODORO_STATE == "pause" ]]; do
         handle_countdown_input
     done
-    render "$base"
+    VIEW_CHANGED=1
 }
 
 
@@ -241,29 +265,28 @@ work_or_rest () {
     while [[ $POMODORO_STATE == "$current_state" ]]; do # continuing after the chime adds another length
         count_down "$spent" $(( spent + length )) || break
         spent=$(( spent + length ))
+        if [[ $current_state == work && $spent == "$length" ]]; then
+            COMPLETED_POMODOROS=$(( COMPLETED_POMODOROS + 1 ))
+        fi
         PREVIOUS_POMODORO_STATE=$POMODORO_STATE
         POMODORO_STATE="chime"
         chiming_with_input
     done
-    render_commit
 }
 
-# Plays notification until key is pressed, showing chime instructions below
-# the current view
+# Plays notification until key is pressed, redrawing the screen every second
 # Globals:
 #   SECONDS
 chiming_with_input () {
-    local base=$RENDERED_CONTENT
-    local instructions
-    instructions=$(state_view)
     SECONDS=0
+    set_title "⏰ time's up"
 
     local last_chime=-1
     local shown_duration=-1
     while [[ $POMODORO_STATE == "chime" ]]; do
         local duration=$SECONDS
         if (( duration != shown_duration )); then # drawn before notify since playing sound blocks
-            render "$base"$'\n'"$instructions"$'\n'"Chiming duration: $((duration / 60)) min $((duration % 60)) sec"
+            render "$(screen_view)"
             shown_duration=$duration
         fi
         if (( duration % 3 == 0 && duration != last_chime )); then # chime every 3 seconds
@@ -272,37 +295,46 @@ chiming_with_input () {
         fi
         handle_countdown_input
     done
-    render "$base"
 }
 
-# Prints the tasks one per line, done ones green and abandoned ones struck through
+# Prints the tasks one per line, marking done ones green and abandoned ones struck through
 task_list_view () {
-    local i style
+    if (( ${#TODO[@]} == 0 )); then
+        printf '  %sno tasks yet%s\n' "$dim" "$clear"
+        return
+    fi
+    local i
     for i in "${!TODO[@]}"; do
-        style=''
-        [[ -v ABANDONED[$i] ]] && style=$strikethrough
-        [[ -v COMPLETED[$i] ]] && style=$green
-        printf '  %s: %b%s%b\n' "$i" "$style" "${TODO[i]}" "$clear"
+        if [[ -v COMPLETED[$i] ]]; then
+            printf '  %s %s✓ %s%s\n' "$i" "$green" "${TODO[i]}" "$clear"
+        elif [[ -v ABANDONED[$i] ]]; then
+            printf '  %s %s✗ %s%s%s\n' "$i" "$dim" "$strikethrough" "${TODO[i]}" "$clear"
+        else
+            printf '  %s • %s\n' "$i" "${TODO[i]}"
+        fi
     done
 }
 
 add_to_list() {
-    local tasks
-    ask tasks 'Add Tasks: '
-    if [[ -n $tasks ]]; then
-        local temp_arr
-        readarray -td',' temp_arr <<< "$tasks" # comma separated input
-        TODO+=("${temp_arr[@]}")
-        strip_TODO_tasks
-        VIEW_CHANGED=1
-    fi
+    local tasks task
+    local -a new_tasks
+    ask tasks 'Add tasks, separated by commas: '
+    IFS=',' read -r -a new_tasks <<< "$tasks" # comma separated input
+    for task in "${new_tasks[@]}"; do
+        task=${task#"${task%%[![:space:]]*}"} # trim leading whitespace
+        task=${task%"${task##*[![:space:]]}"} # trim trailing whitespace
+        if [[ -n $task ]]; then
+            TODO+=("$task")
+        fi
+    done
+    VIEW_CHANGED=1
 }
 
 toggle_task() {
     local -n _arr=$1
     local _val=$2
     local task_index
-    ask task_index 'Tasks no: '
+    ask task_index 'Task number: '
     if [[ -n $task_index ]]; then
         [[ ${_arr[$task_index]+Y} ]] && unset "_arr[$task_index]" || _arr[$task_index]="$_val"
         VIEW_CHANGED=1
@@ -315,9 +347,13 @@ cancel_task()   { toggle_task ABANDONED "ABANDONED"; }
 # Arguments:
 #   n : The current pomodoro number
 single_pomodoro_run () {
-    printf "Pomodoro %s\n" "$1"
+    POMODORO_NUMBER=$1
+    POMODORO_STATE="work"
+    COUNT_START=0
+    COUNT_END=$(( WORK * SECS_IN_MINUTE ))
+    COUNT_NOW=0
     if [[ $NO_TASKS == 0 ]]; then
-        [[ $1 == 1 ]] && printf "Plan is a list separated by a comma i.e. task1,task2,task3\n"
+        render "$(screen_view)"
         add_to_list
     fi
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
@@ -338,8 +374,16 @@ single_pomodoro_run () {
     work_or_rest "$REST"
 }
 
-rename_window_in_tmux () {
-    [[ -n ${TMUX:-} ]] && tmux rename-window "pomodoro"
+# Shows text in the terminal title and tmux window name, only when it changes
+# Arguments:
+#   title ($1)
+set_title () {
+    [[ $1 == "$SHOWN_TITLE" ]] && return 0
+    SHOWN_TITLE=$1
+    printf '\033]2;%s\007' "$1"
+    if [[ -n ${TMUX_PANE:-} ]]; then
+        tmux rename-window -t "$TMUX_PANE" "$1"
+    fi
 }
 
 
@@ -420,10 +464,23 @@ options () {
     done
 }
 
+# Uses the alternate screen, like less or htop, so the terminal is left as it was on exit
+setup_terminal () {
+    tput smcup
+    printf '\033[22;0t' # save the terminal title so it can be restored
+    printf '\033[?25l\033[?7l' # hide cursor, don't wrap lines
+    set_echo off
+}
+
 restore_terminal () {
-    printf "\n\033[?7h"
-    tput cnorm
+    printf '\033[?25h\033[?7h'
+    printf '\033[23;0t' # restore the terminal title
+    tput rmcup
     set_echo on
+    if [[ -n ${TMUX_PANE:-} ]]; then
+        tmux set-window-option -t "$TMUX_PANE" -u automatic-rename || true
+    fi
+    printf "Pomodoros completed: %s\n" "$COMPLETED_POMODOROS"
 }
 
 main () {
@@ -432,9 +489,7 @@ main () {
     # Ensure clean terminal state however the script exits, even mid-render
     trap restore_terminal EXIT
     trap 'exit 0' INT TERM
-    set_echo off
-    rename_window_in_tmux
-    printf "Starting pomodoro, work=%s and rest=%s minutes\n" "$WORK" "$REST"
+    setup_terminal
     local pomodoro_count=1
     while true; do
         single_pomodoro_run $pomodoro_count
