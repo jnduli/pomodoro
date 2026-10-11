@@ -9,7 +9,7 @@ set -euo pipefail
 IFS=$'\t\n'
 
 scriptDir=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
-cd "$scriptDir" || exit
+cd "$scriptDir"
 
 readonly VERSION='0.2'
 readonly SOUNDFILE='alarm.oga'
@@ -21,8 +21,6 @@ REST=5
 SECS_IN_MINUTE=60
 NOTIFICATION_TYPE="sound" # can also be dunst
 DISABLE_NOTIFICATIONS_WHILE_WORKING=0 # can be 0 or 1
-NO_TASKS=0 # can be 0 or 1, 1 skips entering and tracking tasks
-
 
 # Loading values from configuration file stored in ~/.config/pomodoro/config
 if [ -f "$CONFIG_FILE" ]; then
@@ -85,18 +83,13 @@ check_prerequisites () {
     done
 }
 
-# Plays or uses notify-send to send notification
-# Arguments
-#   notification_type
-# Returns
-#   None
+# Plays the sound or uses notify-send, depending on NOTIFICATION_TYPE
 notify () {
-    local notify_type=$1
     # TODO: look for more generic way to detect this
     local i3_lock_process
     i3_lock_process=$(pgrep -c i3lock || true) ## I use i3lock together with xautolock
     if [[ $i3_lock_process == "0" ]]; then
-        if [[ ${notify_type} == "sound" ]]; then
+        if [[ $NOTIFICATION_TYPE == "sound" ]]; then
             local paplay_volume=${VOLUME:-20000}
             paplay --volume="${paplay_volume}" "$SOUNDFILE" & # in background so keys stay responsive
         else
@@ -112,7 +105,6 @@ notify () {
 render () {
     printf '\033[H%s\033[K\033[J' "${1//$'\n'/$'\033[K\n'}"
 }
-
 
 # Turns terminal echo on or off, echo is off outside prompts so stray keys aren't printed
 # Arguments:
@@ -147,7 +139,6 @@ ask () {
 # Returns
 #   1 if quit before the end
 count_down () {
-    # TODO: this should behave differently depending of its work or rest
     COUNT_START=$1
     COUNT_END=$2
     SECONDS=$1
@@ -179,7 +170,7 @@ screen_view () {
         chime:work) color=$red    title="WORK · TIME'S UP"  hints="[q] start break  [c] keep working" ;;
         chime:rest) color=$green  title="BREAK · TIME'S UP" hints="[q] start work  [c] keep resting" ;;
     esac
-    [[ $POMODORO_STATE == work && $NO_TASKS == 0 ]] && hints+="  [a] add  [d] done  [c] cancel"
+    [[ $POMODORO_STATE == work ]] && hints+="  [a] add  [d] done  [c] cancel"
     local label_style=$color$label
     [[ $POMODORO_STATE == chime ]] && label_style+=$blink
 
@@ -190,7 +181,7 @@ screen_view () {
     if [[ $POMODORO_STATE == chime ]]; then
         printf '  ringing for %d:%02d\n' $(( SECONDS / 60 )) $(( SECONDS % 60 ))
     fi
-    if [[ $timed_state == work && $NO_TASKS == 0 ]]; then
+    if [[ $timed_state == work ]]; then
         printf '\n'
         task_list_view
     fi
@@ -218,13 +209,10 @@ handle_countdown_input () {
     # on EOF (stdin not a terminal) read returns immediately, wait to avoid busy looping
     (( status > 0 && status <= 128 )) && { read -r -t 0.25 -u "$IDLE_FD" || true; }
     case "$POMODORO_STATE:${input^^}" in
-        pause:P)
-            POMODORO_STATE=$PREVIOUS_POMODORO_STATE
-            ;;
         chime:Q) # stops chiming and moves to next state
             [[ $PREVIOUS_POMODORO_STATE == "work" ]] && POMODORO_STATE="rest" || POMODORO_STATE="work"
             ;;
-        chime:C) # stops chiming and continues previous state
+        pause:P|chime:C) # unpauses, or stops chiming and continues previous state
             POMODORO_STATE=$PREVIOUS_POMODORO_STATE
             ;;
         work:P|rest:P)
@@ -238,12 +226,11 @@ handle_countdown_input () {
             return 1
             ;;
         # TODO: change inputs to have a time limit too so that it doesn't hang here
-        work:A) (( NO_TASKS )) || add_to_list ;;
-        work:D) (( NO_TASKS )) || complete_task ;;
-        work:C) (( NO_TASKS )) || cancel_task ;;
+        work:A) add_to_list ;;
+        work:D) complete_task ;;
+        work:C) cancel_task ;;
     esac
 }
-
 
 # Shows the paused screen until unpaused
 pause_forever () {
@@ -253,7 +240,6 @@ pause_forever () {
     done
     VIEW_CHANGED=1
 }
-
 
 # Countdowns to zero depending on whether working or resting
 # Arguments:
@@ -290,7 +276,7 @@ chiming_with_input () {
             shown_duration=$duration
         fi
         if (( duration % 3 == 0 && duration != last_chime )); then # chime every 3 seconds
-            notify "$NOTIFICATION_TYPE"
+            notify
             last_chime=$duration
         fi
         handle_countdown_input
@@ -300,7 +286,7 @@ chiming_with_input () {
 # Prints the tasks one per line, marking done ones green and abandoned ones struck through
 task_list_view () {
     if (( ${#TODO[@]} == 0 )); then
-        printf '  %sno tasks yet%s\n' "$dim" "$clear"
+        printf '  %sno tasks yet, press [a] to add%s\n' "$dim" "$clear"
         return
     fi
     local i
@@ -327,35 +313,26 @@ add_to_list() {
             TODO+=("$task")
         fi
     done
-    VIEW_CHANGED=1
 }
 
+# Marks the task number entered in the given set, or unmarks it if already there
+# Arguments:
+#   name of the COMPLETED or ABANDONED set ($1)
 toggle_task() {
     local -n _arr=$1
-    local _val=$2
     local task_index
     ask task_index 'Task number: '
     if [[ -n $task_index ]]; then
-        [[ ${_arr[$task_index]+Y} ]] && unset "_arr[$task_index]" || _arr[$task_index]="$_val"
-        VIEW_CHANGED=1
+        [[ ${_arr[$task_index]+Y} ]] && unset "_arr[$task_index]" || _arr[$task_index]=1
     fi
 }
 
-complete_task() { toggle_task COMPLETED "DONE"; }
-cancel_task()   { toggle_task ABANDONED "ABANDONED"; }
+complete_task() { toggle_task COMPLETED; }
+cancel_task()   { toggle_task ABANDONED; }
 
-# Arguments:
-#   n : The current pomodoro number
+# Runs the next pomodoro's work and then its rest
 single_pomodoro_run () {
-    POMODORO_NUMBER=$1
-    POMODORO_STATE="work"
-    COUNT_START=0
-    COUNT_END=$(( WORK * SECS_IN_MINUTE ))
-    COUNT_NOW=0
-    if [[ $NO_TASKS == 0 ]]; then
-        render "$(screen_view)"
-        add_to_list
-    fi
+    POMODORO_NUMBER=$(( POMODORO_NUMBER + 1 ))
     if [ $DISABLE_NOTIFICATIONS_WHILE_WORKING = 1 ]; then
         dunstctl set-paused true
     fi
@@ -386,10 +363,9 @@ set_title () {
     fi
 }
 
-
 show_help () {
     cat <<EOF
-Copyright (C) 2023: John Nduli K.                                                                                                      
+Copyright (C) 2023: John Nduli K.
 pomodoro.sh version $VERSION:
 
 Pomodoro (https://en.wikipedia.org/wiki/Pomodoro_Technique) allows regular
@@ -406,7 +382,6 @@ Flags:
 -w, --work <arg>: Set time for work in minutes
 -r, --rest <arg>: Set time for rest in minutes
 --no-sound: don't play the sound to notify
---no-tasks: don't prompt for or track tasks, only run the timer
 --debug-mode: debug mode (The time counter uses seconds instead of minutes)
 
 Advanced configuration:
@@ -417,7 +392,7 @@ WORK=25 # time to work in minutes
 REST=5 # time to rest in minutes
 NOTIFICATION_TYPE="sound" # can also be dunst
 DISABLE_NOTIFICATIONS_WHILE_WORKING=1 # can be 0 or 1
-NO_TASKS=0 # can be 0 or 1, 1 skips entering and tracking tasks
+VOLUME=20000 # sound volume passed to paplay, 65536 is 100%
 EOF
 }
 
@@ -441,10 +416,6 @@ options () {
                 ;;
             --no-sound)
                 NOTIFICATION_TYPE="dunst"
-                shift
-                ;;
-            --no-tasks)
-                NO_TASKS=1
                 shift
                 ;;
             --debug-mode)
@@ -490,10 +461,8 @@ main () {
     trap restore_terminal EXIT
     trap 'exit 0' INT TERM
     setup_terminal
-    local pomodoro_count=1
     while true; do
-        single_pomodoro_run $pomodoro_count
-        pomodoro_count=$((pomodoro_count+1))
+        single_pomodoro_run
     done
 }
 
